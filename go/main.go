@@ -13,7 +13,7 @@ import (
 var baseURL = "http://192.168.0.239/api/v1"
 
 // LOGIN
-func login(name, password string) (string, error) {
+func login(name, password string) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.PostForm(fmt.Sprintf("%s/login", baseURL),
 		url.Values{
@@ -21,15 +21,12 @@ func login(name, password string) (string, error) {
 		},
 	)
 	if err != nil {
-		return "", fmt.Errorf("HTTP request failed: %w", err)
-	} else {
-		fmt.Printf("LOGIN - There were no errors!\n")
+		fmt.Printf("HTTP request failed: %v", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	fmt.Printf("%v", string(body))
-	return string(body), nil
 }
 
 // LOGOUT
@@ -37,8 +34,6 @@ func logout() {
 	resp, err := http.Get(fmt.Sprintf("%s/logout", baseURL))
 	if err != nil {
 		check.ExitError(err)
-	} else {
-		fmt.Printf("LOGOUT - There were no errors!\n")
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
@@ -50,8 +45,6 @@ func device_info() {
 	resp, err := http.Get(fmt.Sprintf("%s/device_info", baseURL))
 	if err != nil {
 		check.ExitError(err)
-	} else {
-		fmt.Printf("DEVICE_INFO - There were no errors!\n")
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
@@ -59,20 +52,198 @@ func device_info() {
 }
 
 // DEVICE_FAN
-func device_fan(fanMode int) (string, error) {
+func device_fan(fanMode int) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.PostForm(fmt.Sprintf("%s/device_fan", baseURL),
 		url.Values{"fanMode": {fmt.Sprintf("%d", fanMode)}})
 	if err != nil {
-		return "", fmt.Errorf("HTTP request failed: %w", err)
-	} else {
-		fmt.Printf("DEVICE_FAN - There were no errors!\n")
+		fmt.Printf("HTTP request failed: %v", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	fmt.Printf("%v", string(body))
-	return string(body), nil
+}
+
+// SNTP_SERVER_CFG
+func sntp_server_cfg() {
+	resp, err := http.Get(fmt.Sprintf("%s/sntp_server_cfg", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
+}
+
+func imageInfo() {
+	resp, err := http.Get(fmt.Sprintf("%s/imageInfo", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
+}
+
+func vlan_interface_route() {
+	resp, err := http.Get(fmt.Sprintf("%s/vlan_interface_route", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
+}
+
+func special_interface_route() {
+	resp, err := http.Get(fmt.Sprintf("%s/special_interface_route", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
+}
+
+func ip_http() {
+	resp, err := http.Get(fmt.Sprintf("%s/ip_http", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
+}
+
+func profile_list() {
+	resp, err := http.Get(fmt.Sprintf("%s/profile/list", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
+}
+
+func profile() {
+	resp, err := http.Get(fmt.Sprintf("%s/profile", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
+}
+
+func sw_auto_lag_cfg() {
+	resp, err := http.Get(fmt.Sprintf("%s/sw_auto_lag_cfg", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
+}
+
+func neighbor() {
+	resp, err := http.Get(fmt.Sprintf("%s/neighbor", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
+}
+
+func swcfg_poe() {
+	resp, err := http.Get(fmt.Sprintf("%s/swcfg_poe", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
+}
+
+func port_statistics() {
+	resp, err := http.Get(fmt.Sprintf("%s/port_statistics", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
+}
+
+func swcfg_ports_status() {
+	resp, err := http.Get(fmt.Sprintf("%s/swcfg_ports_status", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
+}
+
+func tech_support() {
+	resp, err := http.Get(fmt.Sprintf("%s/tech_support", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
+}
+
+func device_config() {
+	resp, err := http.Get(fmt.Sprintf("%s/device_config", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
+}
+
+func ping_test() {
+	resp, err := http.Get(fmt.Sprintf("%s/ping_test", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
+}
+
+func trace_test() {
+	resp, err := http.Get(fmt.Sprintf("%s/trace_test", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
+}
+
+func dns_lookup() {
+	resp, err := http.Get(fmt.Sprintf("%s/dns_lookup", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
+}
+
+func sw_ptp_cfg() {
+	resp, err := http.Get(fmt.Sprintf("%s/sw_ptp_cfg", baseURL))
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	fmt.Printf("%v", string(body))
 }
 
 func main() {
@@ -80,6 +251,25 @@ func main() {
 	login("admin", "password")
 	device_info()
 	device_fan(2)
+	sntp_server_cfg()
+	imageInfo()
+	vlan_interface_route()
+	special_interface_route()
+	ip_http()
+	profile_list()
+	profile()
+	sw_auto_lag_cfg()
+	neighbor()
+	swcfg_poe()
+	port_statistics()
+	swcfg_poe()
+	swcfg_ports_status()
+	tech_support()
+	device_config()
+	ping_test()
+	trace_test()
+	dns_lookup()
+	sw_ptp_cfg()
 	logout()
 
 	// config := check.NewConfig()
