@@ -66,7 +66,7 @@ func login(name, password string) error {
 	}
 
 	sessionToken = session
-	fmt.Println("Session token:", sessionToken)
+	// fmt.Println("Session token:", sessionToken)
 	return nil
 }
 
@@ -101,7 +101,6 @@ func device_info() []byte {
 		check.ExitError(err)
 	}
 
-	fmt.Printf("%v", string(body))
 	return body
 }
 

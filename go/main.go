@@ -28,21 +28,17 @@ func main() {
 	fanName := data["deviceInfo"].(map[string]any)["fan"].([]any)[0].(map[string]any)["details"].([]any)[0].(map[string]any)["desc"]
 	fanSpeed := data["deviceInfo"].(map[string]any)["fan"].([]any)[0].(map[string]any)["details"].([]any)[0].(map[string]any)["speed"]
 
-	sensorData := data["deviceInfo"].(map[string]any)["sensor"].([]any)[0].(map[string]any)["details"].([]any) // For the temperatuer
-	temperature1 := sensorData[0].(map[string]any)["temp"].(float64)
-	temperature1Name := sensorData[0].(map[string]any)["desc"].(string)
-	temperature2 := sensorData[1].(map[string]any)["temp"].(float64)
-	temperature2Name := sensorData[1].(map[string]any)["desc"].(string)
-	temperature3 := sensorData[2].(map[string]any)["temp"].(float64)
-	temperature3Name := sensorData[2].(map[string]any)["desc"].(string)
+	sensorData := data["deviceInfo"].(map[string]any)["sensor"].([]any)[0].(map[string]any)["details"].([]any) // For the temperature
+	var temperaturesNames []string
+	for _, sensor := range sensorData {
+		temperaturesNames = append(temperaturesNames, sensor.(map[string]any)["desc"].(string))
+	}
+	var temperatures []float64
+	for _, sensor := range sensorData {
+		temperatures = append(temperatures, sensor.(map[string]any)["temp"].(float64))
+	}
 
 	worstStatusCode := check.OK
-
-	if cpuUsage >= 90 || memoryUsage >= 90 || temperature1 > 80 || temperature2 > 80 || temperature3 > 80 {
-		worstStatusCode = check.Critical
-	} else if cpuUsage >= 70 || memoryUsage >= 75 || temperature1 > 70 || temperature2 > 70 || temperature3 > 70 {
-		worstStatusCode = check.Warning
-	}
 
 	if fanSpeed == 0 {
 		worstStatusCode = check.Warning
@@ -51,47 +47,33 @@ func main() {
 	// Generating the graph thingie
 
 	o := result.Overall{}
-	o.Add(worstStatusCode, "General Device Info")
-
 	o.Add(worstStatusCode, fmt.Sprintf("Uptime - %v", upTime))
 
 	//CPU Checks
 	cpuCheck := result.PartialResult{
-		Output: "CPU",
+		Output: fmt.Sprintf("CPU Usage: %v%%", cpuUsage),
 	}
 	cpuCheck.SetState(check.OK)
-
-	cpuSubCheck1 := result.PartialResult{
-		Output: fmt.Sprintf("Usage: %v", cpuUsage),
-	}
-	cpuSubCheck1.SetState(get_cpu_usage_check_level(cpuUsage))
-	cpuSubCheck1.Perfdata.Add(&perfdata.Perfdata{
+	cpuCheck.Perfdata.Add(&perfdata.Perfdata{
 		Label: "CPU",
 		Value: cpuUsage,
 		Min:   0,
 		Max:   100,
 	})
-	cpuCheck.AddSubcheck(cpuSubCheck1)
 
 	o.AddSubcheck(cpuCheck)
 
 	//Memory Checks
 	memoryCheck := result.PartialResult{
-		Output: "RAM",
+		Output: fmt.Sprintf("RAM Usage: %v%%", memoryUsage),
 	}
 	memoryCheck.SetState(check.OK)
-
-	memorySubCheck1 := result.PartialResult{
-		Output: fmt.Sprintf("Usage: %v", memoryUsage),
-	}
-	memorySubCheck1.SetState(get_cpu_usage_check_level(memoryUsage))
-	memorySubCheck1.Perfdata.Add(&perfdata.Perfdata{
+	memoryCheck.Perfdata.Add(&perfdata.Perfdata{
 		Label: "RAM",
 		Value: memoryUsage,
 		Min:   0,
 		Max:   100,
 	})
-	memoryCheck.AddSubcheck(memorySubCheck1)
 
 	o.AddSubcheck(memoryCheck)
 
@@ -101,38 +83,18 @@ func main() {
 	}
 	temperatureCheck.SetState(check.Warning)
 
-	tempSubCheck1 := result.PartialResult{
-		Output: fmt.Sprintf("%v - %v", temperature1Name, temperature1),
+	for index, _ := range temperatures {
+		tempSubCheck := result.PartialResult{
+			Output: fmt.Sprintf("%v: %v°С", temperaturesNames[index], temperatures[index]),
+		}
+		tempSubCheck.SetState(check.OK)
+		tempSubCheck.Perfdata.Add(&perfdata.Perfdata{
+			Label: temperaturesNames[index],
+			Value: temperatures[index],
+			Min:   0,
+		})
+		temperatureCheck.AddSubcheck(tempSubCheck)
 	}
-	tempSubCheck1.SetState(check.OK)
-	tempSubCheck1.Perfdata.Add(&perfdata.Perfdata{
-		Label: temperature1Name,
-		Value: temperature1,
-		Min:   0,
-	})
-	temperatureCheck.AddSubcheck(tempSubCheck1)
-
-	tempSubCheck2 := result.PartialResult{
-		Output: fmt.Sprintf("%v - %v", temperature2Name, temperature2),
-	}
-	tempSubCheck2.SetState(check.Warning)
-	tempSubCheck2.Perfdata.Add(&perfdata.Perfdata{
-		Label: temperature2Name,
-		Value: temperature2,
-		Min:   0,
-	})
-	temperatureCheck.AddSubcheck(tempSubCheck2)
-
-	tempSubCheck3 := result.PartialResult{
-		Output: fmt.Sprintf("%v - %v", temperature3Name, temperature3),
-	}
-	tempSubCheck3.SetState(check.OK)
-	tempSubCheck3.Perfdata.Add(&perfdata.Perfdata{
-		Label: temperature3Name,
-		Value: temperature3,
-		Min:   0,
-	})
-	temperatureCheck.AddSubcheck(tempSubCheck3)
 
 	o.AddSubcheck(temperatureCheck)
 
