@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/NETWAYS/go-check"
@@ -46,7 +48,7 @@ func login(name, password string) error {
 		return err
 	}
 
-	fmt.Println("Login response:", string(body))
+	// fmt.Println("Login response:", string(body))
 
 	var result map[string]interface{}
 	if err := json.Unmarshal(body, &result); err != nil {
@@ -80,7 +82,7 @@ func logout() {
 }
 
 // DEVICE_INFO
-func device_info() {
+func device_info() []byte {
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/device_info", baseURL), nil)
 	if err != nil {
 		check.ExitError(err)
@@ -98,7 +100,9 @@ func device_info() {
 	if err != nil {
 		check.ExitError(err)
 	}
+
 	fmt.Printf("%v", string(body))
+	return body
 }
 
 // DEVICE_FAN
@@ -502,7 +506,32 @@ func sw_ptp_cfg() {
 	fmt.Printf("%v", string(body))
 }
 
-type Function struct {
-	label    string
-	function func()
+func string_percent_to_float(percents string) float64 {
+	to_return, err := strconv.ParseFloat(strings.TrimSuffix(percents, "%"), 64)
+	if err != nil {
+		return 0
+	}
+	return to_return
+}
+
+func get_cpu_usage_check_level(cpuUsage float64) int {
+	level := check.OK
+	if cpuUsage >= 70 {
+		level = check.Warning
+	}
+	if cpuUsage >= 90 {
+		level = check.Critical
+	}
+	return level
+}
+
+func get_memory_usage_check_level(memoryUsage float64) int {
+	level := check.OK
+	if memoryUsage >= 70 {
+		level = check.Warning
+	}
+	if memoryUsage >= 90 {
+		level = check.Critical
+	}
+	return level
 }
