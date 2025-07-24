@@ -13,7 +13,6 @@ import (
 	"github.com/NETWAYS/go-check"
 )
 
-var baseURL = "http://192.168.0.239/api/v1"
 var sessionToken string
 
 // LOGIN
@@ -30,7 +29,7 @@ func login(name, password string) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/login", baseURL), bytes.NewBuffer(payloadBytes))
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/login", *hostName), bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		return err
 	}
@@ -52,17 +51,22 @@ func login(name, password string) error {
 
 	var result map[string]interface{}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return err
+		return fmt.Errorf("failed to parse login response JSON: %w", err)
 	}
 
-	userSection, ok := result["user"].(map[string]interface{})
+	userRaw, ok := result["user"]
 	if !ok {
-		return fmt.Errorf("login response: missing 'user' field or wrong type")
+		return fmt.Errorf("login response: missing 'user' field; body: %s", string(body))
+	}
+
+	userSection, ok := userRaw.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("login response: 'user' is not a JSON object; body: %s", string(body))
 	}
 
 	session, ok := userSection["session"].(string)
 	if !ok {
-		return fmt.Errorf("login response: missing 'session' token")
+		return fmt.Errorf("login response: missing 'session' token; body: %s", string(body))
 	}
 
 	sessionToken = session
@@ -72,7 +76,7 @@ func login(name, password string) error {
 
 // LOGOUT
 func logout() {
-	resp, err := http.Get(fmt.Sprintf("%s/logout", baseURL))
+	resp, err := http.Get(fmt.Sprintf("%s/logout", *hostName))
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -83,7 +87,7 @@ func logout() {
 
 // DEVICE_INFO
 func device_info() []byte {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/device_info", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/device_info", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -106,7 +110,7 @@ func device_info() []byte {
 
 // DEVICE_FAN
 func device_fan() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/device_fan", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/device_fan", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -128,7 +132,7 @@ func device_fan() {
 
 // SNTP_SERVER_CFG
 func sntp_server_cfg() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/sntp_server_cfg", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/sntp_server_cfg", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -149,7 +153,7 @@ func sntp_server_cfg() {
 }
 
 func imageInfo() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/imageInfo", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/imageInfo", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -170,7 +174,7 @@ func imageInfo() {
 }
 
 func vlan_interface_route() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/vlan_interface_route", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/vlan_interface_route", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -191,7 +195,7 @@ func vlan_interface_route() {
 }
 
 func special_interface_route() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/special_interface_route", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/special_interface_route", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -212,7 +216,7 @@ func special_interface_route() {
 }
 
 func ip_http() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/ip_http", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/ip_http", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -233,7 +237,7 @@ func ip_http() {
 }
 
 func profile_list() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/profile/list", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/profile/list", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -254,7 +258,7 @@ func profile_list() {
 }
 
 func profile() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/profile", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/profile", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -275,7 +279,7 @@ func profile() {
 }
 
 func sw_auto_lag_cfg() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/sw_auto_lag_cfg", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/sw_auto_lag_cfg", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -296,7 +300,7 @@ func sw_auto_lag_cfg() {
 }
 
 func neighbor() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/neighbor", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/neighbor", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -317,7 +321,7 @@ func neighbor() {
 }
 
 func swcfg_poe() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/swcfg_poe", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/swcfg_poe", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -338,7 +342,7 @@ func swcfg_poe() {
 }
 
 func port_statistics() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/port_statistics", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/port_statistics", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -359,7 +363,7 @@ func port_statistics() {
 }
 
 func swcfg_ports_status() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/swcfg_ports_status", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/swcfg_ports_status", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -380,7 +384,7 @@ func swcfg_ports_status() {
 }
 
 func tech_support() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/tech_support", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/tech_support", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -401,7 +405,7 @@ func tech_support() {
 }
 
 func device_config() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/device_config", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/device_config", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -422,7 +426,7 @@ func device_config() {
 }
 
 func ping_test() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/ping_test", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/ping_test", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -443,7 +447,7 @@ func ping_test() {
 }
 
 func trace_test() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/trace_test", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/trace_test", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -464,7 +468,7 @@ func trace_test() {
 }
 
 func dns_lookup() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/dns_lookup", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/dns_lookup", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
@@ -485,7 +489,7 @@ func dns_lookup() {
 }
 
 func sw_ptp_cfg() {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/sw_ptp_cfg", baseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/sw_ptp_cfg", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}
