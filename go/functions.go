@@ -84,7 +84,9 @@ func logout() {
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
-	fmt.Printf("%v", string(body))
+	if false { //Has to be used, but nobody wants it
+		fmt.Printf("%v", string(body))
+	}
 }
 
 // DEVICE_INFO
