@@ -328,4 +328,5 @@ func main() {
 		// Output result
 		fmt.Println(o.GetOutput())
 	}
+	logout()
 }
