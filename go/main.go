@@ -323,7 +323,7 @@ func main() {
 			}
 		}
 
-		o.Add(worstStatus, fmt.Sprintf("Ports Statistics"))
+		o.Add(worstStatus, "Ports Statistics")
 
 		// Output result
 		fmt.Println(o.GetOutput())
