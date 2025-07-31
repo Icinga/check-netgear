@@ -251,7 +251,7 @@ func main() {
 					}
 					subInTotalPkts.SetState(status)
 					subInTotalPkts.Perfdata.Add(&perfdata.Perfdata{
-						Label: fmt.Sprintf("port %v", portNumber),
+						Label: fmt.Sprintf("port %v Total In Packets", portNumber),
 						Value: portNumber,
 						Min:   0,
 					})
@@ -281,7 +281,7 @@ func main() {
 					}
 					subInDropPkts.SetState(status)
 					subInDropPkts.Perfdata.Add(&perfdata.Perfdata{
-						Label: fmt.Sprintf("port %v", portNumber),
+						Label: fmt.Sprintf("port %v Total In drop Packets", portNumber),
 						Value: portNumber,
 						Min:   0,
 					})
@@ -311,7 +311,7 @@ func main() {
 					}
 					subInOctets.SetState(status)
 					subInOctets.Perfdata.Add(&perfdata.Perfdata{
-						Label: fmt.Sprintf("port %v", portNumber),
+						Label: fmt.Sprintf("port %v Total in Bytes", portNumber),
 						Value: portNumber,
 						Min:   0,
 					})
