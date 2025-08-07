@@ -221,7 +221,7 @@ func main() {
 		o := result.Overall{}
 		// o.Add(check.OK, fmt.Sprintf("Device Info: Uptime - %v", upTime))
 
-		// Temperature checks
+		// Ports checks
 		for _, port := range portRows {
 			portNumber := port.(map[string]any)["port"].(float64)
 			if slices.Contains(*portsToCheck, int(portNumber)) {
