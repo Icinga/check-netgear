@@ -11,48 +11,59 @@ import (
 	"github.com/spf13/pflag"
 )
 
-var allowedModes = map[string]bool{
-	"basic": true,
-	"ports": true,
-}
-
+// We need this variable to be global, because it is used in functions.go
 var hostName *string
 
 func main() {
+	// Get flags from the cli
 	hidecpu := pflag.Bool("nocpu", false, "Hide the CPU info")
-	hideram := pflag.Bool("noram", false, "Hide the RAM info")
+	hidemem := pflag.Bool("nomem", false, "Hide the RAM info")
 	hidetemp := pflag.Bool("notemp", false, "Hide the Temperature info")
 	hidefans := pflag.Bool("nofans", false, "Hide the Fans info")
 
+	// Get arguments from the cli
 	mode := pflag.StringSlice("mode", []string{"basic"}, "Output modes to enable {basic|short}")
 	hostName = pflag.StringP("hostname", "H", "http://192.168.112.19", "Hostname to use")
 	username := pflag.StringP("username", "u", "", "Username to use for authentication")
 	password := pflag.StringP("password", "p", "", "Password to use for authentication")
 
+	// Warning & Critical values for every metric
+	CPU_WARN := pflag.Float64P("cpu-warning", "cw", 50, "Provide the minimum for CPU usage warning")
+	CPU_CRIT := pflag.Float64P("cpu-critical", "cc", 90, "Provide the minimum for CPU usage critical")
+	MEM_WARN := pflag.Float64P("mem-warning", "mw", 50, "Provide the minimum for RAM usage warning")
+	MEM_CRIT := pflag.Float64P("mem-critical", "mc", 90, "Provide the minimum for RAM usage critical")
+	FAN_WARN := pflag.Float64P("fan-warning", "fw", 3000, "Provide the minimum for Fan speeds warning")
+
+	TEMP_WARN := pflag.Float64P("temp-warning", "tw", 50, "Provide the minimum for Temperature warning")
+	TEMP_CRIT := pflag.Float64P("temp-critical", "tc", 70, "Provide the minimum for Temperature critical")
+	STATS_WARN := pflag.Float64P("stats-warning", "sw", 5, "Provide the minimum for Port statistics warning")
+	STATS_CRIT := pflag.Float64P("stats-critical", "sc", 20, "Provide the minimum for Port statistics critical")
+
+	// Ports to check if the mode 'ports' is present
 	portsToCheck := pflag.IntSlice("port", []int{1, 2, 3, 4, 5, 6, 7, 8}, "Ports to check")
 
 	help := pflag.BoolP("help", "h", false, "Show this help")
 
+	// Parse all the flags for later usage
 	pflag.Parse()
 
+	// Display help if the -h is given, or no username / password is provided
 	if *help || *username == "" || *password == "" {
 		pflag.Usage()
 		return
 	}
-	for _, m := range *mode {
-		if _, ok := allowedModes[m]; !ok {
-			fmt.Printf("Invalid display mode: %s\n", m)
-			return
-		}
-	}
 
 	*hostName += "/api/v1"
 
+	// Trying to log in
 	err := login(*username, *password)
-	if err != nil {
+	if err != nil { // Error is present, display it
 		fmt.Printf("Error while trying to login: %v\n", err)
 		return
 	}
+
+	// Now everything is fine and the token is saved in a global variable in functions.go
+	// We can proceed with checking for every mode checked and doing corresponding stuff
 
 	//Basic output
 	if slices.Contains(*mode, "basic") {
@@ -64,31 +75,32 @@ func main() {
 		}
 		deviceInfo := data["deviceInfo"].(map[string]any)
 
-		// Parse base metrics
+		// Basic info
 		upTime := deviceInfo["details"].([]any)[0].(map[string]any)["upTime"]
 		cpuUsage := string_percent_to_float(deviceInfo["cpu"].([]any)[0].(map[string]any)["usage"].(string))
 		memoryUsage := string_percent_to_float(deviceInfo["memory"].([]any)[0].(map[string]any)["usage"].(string))
 
+		// Fans details
 		fanDetails := deviceInfo["fan"].([]any)[0].(map[string]any)["details"].([]any)[0].(map[string]any)
 		fanName := fanDetails["desc"].(string)
 		fanSpeed := fanDetails["speed"].(float64)
 
+		// Temperature details
 		sensorDetails := deviceInfo["sensor"].([]any)[0].(map[string]any)["details"].([]any)
 
-		//STATUSES CALC
+		// worstStatus is needed for 'inheriting' the worst status from the lower levels to the top
 		worstStatus := check.OK
 
 		// Create result container
 		o := result.Overall{}
-		// o.Add(check.OK, fmt.Sprintf("Device Info: Uptime - %v", upTime))
 
 		// CPU check
 		if !*hidecpu {
 			cpuStatus := check.OK
-			if cpuUsage >= 90 {
+			if cpuUsage >= *CPU_CRIT {
 				cpuStatus = check.Critical
 				worstStatus = check.Critical
-			} else if cpuUsage >= 60 {
+			} else if cpuUsage >= *CPU_WARN {
 				cpuStatus = check.Warning
 				worstStatus = check.Warning
 			}
@@ -106,14 +118,14 @@ func main() {
 		}
 
 		// Memory check
-		if !*hideram {
+		if !*hidemem {
 			memoryStatus := check.OK
-			if memoryUsage >= 90 {
+			if memoryUsage >= *MEM_CRIT {
 				memoryStatus = check.Critical
 				if worstStatus != check.Critical {
 					worstStatus = check.Critical
 				}
-			} else if memoryUsage >= 70 {
+			} else if memoryUsage >= *MEM_WARN {
 				memoryStatus = check.Warning
 				if worstStatus < check.Warning {
 					worstStatus = check.Warning
@@ -141,12 +153,12 @@ func main() {
 				temp := sensor.(map[string]any)["temp"].(float64)
 
 				status := check.OK
-				if temp >= 70 {
+				if temp >= *TEMP_CRIT {
 					status = check.Critical
 					if worstStatus != check.Critical {
 						worstStatus = check.Critical
 					}
-				} else if temp >= 50 {
+				} else if temp >= *TEMP_WARN {
 					status = check.Warning
 					if worstStatus < check.Warning {
 						worstStatus = check.Warning
@@ -175,7 +187,7 @@ func main() {
 		if !*hidefans {
 			fansCheck := result.PartialResult{Output: "Fans"}
 			fanStatus := check.OK
-			if fanSpeed == 0 {
+			if fanSpeed > *FAN_WARN {
 				fanStatus = check.Warning
 				if worstStatus < check.Warning {
 					worstStatus = check.Warning
@@ -231,13 +243,16 @@ func main() {
 				// inTotalPkts - Total IN packets
 				if true {
 					inTotalPkts := port.(map[string]any)["inTotalPkts"].(float64)
+					inDropPkts := port.(map[string]any)["inDropPkts"].(float64)
+					inOctets := port.(map[string]any)["inOctets"].(float64)
+					packetLossPercentage := inDropPkts / inTotalPkts * 100
 					status := check.OK
-					if inTotalPkts < -1 { // Check for critical in inTotalPkts values
+					if packetLossPercentage >= *STATS_CRIT { // Check for critical in dropped packets percentage
 						status = check.Critical
 						if worstStatus != check.Critical {
 							worstStatus = check.Critical
 						}
-					} else if portNumber < 0 { // The same as above
+					} else if packetLossPercentage >= *STATS_WARN { // Check for warning in dropped packets percentage
 						status = check.Warning
 						if worstStatus < check.Warning {
 							worstStatus = check.Warning
@@ -247,75 +262,15 @@ func main() {
 						worstPortsStatus = status
 					}
 					subInTotalPkts := result.PartialResult{
-						Output: fmt.Sprintf("InTotalPkts: %d", int(inTotalPkts)),
+						Output: fmt.Sprintf("Packet loss: %v%%; %v Bytes", packetLossPercentage, inOctets),
 					}
 					subInTotalPkts.SetState(status)
 					subInTotalPkts.Perfdata.Add(&perfdata.Perfdata{
-						Label: fmt.Sprintf("port %v Total In Packets", portNumber),
-						Value: portNumber,
+						Label: fmt.Sprintf("port %v packet loss", portNumber),
+						Value: packetLossPercentage,
 						Min:   0,
 					})
 					portsCheck.AddSubcheck(subInTotalPkts)
-				}
-
-				// inDropPkts - Total drop IN packets
-				if true {
-					inDropPkts := port.(map[string]any)["inDropPkts"].(float64)
-					status := check.OK
-					if inDropPkts >= 2600 {
-						status = check.Critical
-						if worstStatus != check.Critical {
-							worstStatus = check.Critical
-						}
-					} else if inDropPkts >= 2400 {
-						status = check.Warning
-						if worstStatus < check.Warning {
-							worstStatus = check.Warning
-						}
-					}
-					if status > worstPortsStatus {
-						worstPortsStatus = status
-					}
-					subInDropPkts := result.PartialResult{
-						Output: fmt.Sprintf("InDropPkts: %v", inDropPkts),
-					}
-					subInDropPkts.SetState(status)
-					subInDropPkts.Perfdata.Add(&perfdata.Perfdata{
-						Label: fmt.Sprintf("port %v Total In drop Packets", portNumber),
-						Value: portNumber,
-						Min:   0,
-					})
-					portsCheck.AddSubcheck(subInDropPkts)
-				}
-
-				// inOctets - Total IN octets
-				if true {
-					inOctets := port.(map[string]any)["inOctets"].(float64)
-					status := check.OK
-					if inOctets < -1 { // Ckeck for critical in octets values
-						status = check.Critical
-						if worstStatus != check.Critical {
-							worstStatus = check.Critical
-						}
-					} else if portNumber < 0 { // Check for warning in octets values
-						status = check.Warning
-						if worstStatus < check.Warning {
-							worstStatus = check.Warning
-						}
-					}
-					if status > worstPortsStatus {
-						worstPortsStatus = status
-					}
-					subInOctets := result.PartialResult{
-						Output: fmt.Sprintf("Bytes: %d", int(inOctets)),
-					}
-					subInOctets.SetState(status)
-					subInOctets.Perfdata.Add(&perfdata.Perfdata{
-						Label: fmt.Sprintf("port %v Total in Bytes", portNumber),
-						Value: portNumber,
-						Min:   0,
-					})
-					portsCheck.AddSubcheck(subInOctets)
 				}
 
 				portsCheck.SetState(worstPortsStatus)
