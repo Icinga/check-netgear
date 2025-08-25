@@ -238,8 +238,17 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		portsInfo := dataIn["portStatistics"].(map[string]any)
-		portRows := portsInfo["rows"].([]interface{})
+		portsInInfo := dataIn["portStatistics"].(map[string]any)
+		portRowsIn := portsInInfo["rows"].([]interface{})
+
+		var dataOut map[string]any
+		portsOut := port_statistics("outbound")
+		err = json.Unmarshal(portsOut, &dataOut)
+		if err != nil {
+			panic(err)
+		}
+		portsOutInfo := dataOut["portStatistics"].(map[string]any)
+		portRowsOut := portsOutInfo["rows"].([]interface{})
 		/*for _, portRow := range portRows {
 			fmt.Printf("Port %v: %v\n", portRow.(map[string]any)["port"], portRow.(map[string]any))
 		}*/
@@ -252,17 +261,17 @@ func main() {
 		// o.Add(check.OK, fmt.Sprintf("Device Info: Uptime - %v", upTime))
 
 		// Ports checks
-		for _, port := range portRows {
-			portNumber := port.(map[string]any)["port"].(float64)
+		for index, _ := range portRowsIn {
+			portNumber := portRowsIn[index].(map[string]any)["port"].(float64)
 			if slices.Contains(*portsToCheck, int(portNumber)) {
 				portsCheck := result.PartialResult{Output: fmt.Sprintf("Port %v", portNumber)}
 				worstPortsStatus := check.OK
 
 				// inTotalPkts - Total IN packets
 				if true {
-					inTotalPkts := port.(map[string]any)["inTotalPkts"].(float64)
-					inDropPkts := port.(map[string]any)["inDropPkts"].(float64)
-					inOctets := port.(map[string]any)["inOctets"].(float64)
+					inTotalPkts := portRowsIn[index].(map[string]any)["inTotalPkts"].(float64)
+					inDropPkts := portRowsIn[index].(map[string]any)["inDropPkts"].(float64)
+					inOctets := portRowsIn[index].(map[string]any)["inOctets"].(float64)
 					packetLossPercentage := 0.0
 					if inTotalPkts > 0 {
 						packetLossPercentage = inDropPkts / inTotalPkts * 100
@@ -283,18 +292,59 @@ func main() {
 						worstPortsStatus = status
 					}
 					subInTotalPkts := result.PartialResult{
-						Output: fmt.Sprintf("Packet loss: %.2f%%; Total: %v", packetLossPercentage, human_bytes(uint64(inOctets))),
+						Output: fmt.Sprintf("Total IN: %v; Packet loss: %.2f%%", human_bytes(uint64(inOctets)), packetLossPercentage),
 					}
 					err := subInTotalPkts.SetState(status)
 					if err != nil {
 						subInTotalPkts.SetState(check.Unknown)
 					}
 					subInTotalPkts.Perfdata.Add(&perfdata.Perfdata{
-						Label: fmt.Sprintf("port %v packet loss", portNumber),
+						Label: fmt.Sprintf("port %v in packet loss", portNumber),
 						Value: packetLossPercentage,
 						Min:   0,
+						Max:   100,
 					})
 					portsCheck.AddSubcheck(subInTotalPkts)
+				}
+
+				// outTotalPkts - Total OUT packets
+				if true {
+					outTotalPkts := portRowsOut[index].(map[string]any)["outTotalPkts"].(float64)
+					outDropPkts := portRowsOut[index].(map[string]any)["outDropPkts"].(float64)
+					outOctets := portRowsOut[index].(map[string]any)["outOctets"].(float64)
+					packetLossPercentage := 0.0
+					if outTotalPkts > 0 {
+						packetLossPercentage = outDropPkts / outTotalPkts * 100
+					}
+					status := check.OK
+					if packetLossPercentage >= *STATS_CRIT { // Check for critical in dropped packets percentage
+						status = check.Critical
+						if worstStatus != check.Critical {
+							worstStatus = check.Critical
+						}
+					} else if packetLossPercentage >= *STATS_WARN { // Check for warning in dropped packets percentage
+						status = check.Warning
+						if worstStatus < check.Warning {
+							worstStatus = check.Warning
+						}
+					}
+					if status > worstPortsStatus {
+						worstPortsStatus = status
+					}
+					subOutTotalPkts := result.PartialResult{
+						Output: fmt.Sprintf("Total OUT: %v; Packet loss: %.2f%%", human_bytes(uint64(outOctets)), packetLossPercentage),
+					}
+					err := subOutTotalPkts.SetState(status)
+					if err != nil {
+						subOutTotalPkts.SetState(check.Unknown)
+					}
+					subOutTotalPkts.Perfdata.Add(&perfdata.Perfdata{
+						Label: fmt.Sprintf("port %v out packet loss", portNumber),
+						Value: packetLossPercentage,
+						Min:   0,
+						Max:   100,
+					})
+					portsCheck.AddSubcheck(subOutTotalPkts)
 				}
 
 				err := portsCheck.SetState(worstPortsStatus)
@@ -310,5 +360,6 @@ func main() {
 		// Output result
 		fmt.Println(o.GetOutput())
 	}
+
 	logout()
 }

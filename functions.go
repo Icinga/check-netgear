@@ -152,6 +152,34 @@ func port_statistics(statType string) []byte {
 	return body
 }
 
+func poe_status(port string) []byte {
+	req, err := http.NewRequest("GET",
+		fmt.Sprintf("%s/swcfg_poe?port=%s", *hostName, port), nil)
+	if err != nil {
+		check.ExitError(err)
+	}
+	req.Header.Set("session", sessionToken)
+
+	client := &http.Client{Timeout: timeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Printf("Error closing body: %s\n", err)
+		}
+	}(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		check.ExitError(err)
+	}
+
+	return body
+}
+
 func string_percent_to_float(percents string) float64 {
 	to_return, err := strconv.ParseFloat(strings.TrimSuffix(percents, "%"), 64)
 	if err != nil {
