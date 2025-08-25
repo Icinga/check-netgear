@@ -23,21 +23,21 @@ func main() {
 
 	// Get arguments from the cli
 	mode := pflag.StringSlice("mode", []string{"basic"}, "Output modes to enable {basic|short}")
-	hostName = pflag.StringP("hostname", "H", "http://192.168.112.19", "Hostname to use")
+	hostName = pflag.StringP("hostname", "H", "http://192.168.112.7", "Hostname to use")
 	username := pflag.StringP("username", "u", "", "Username to use for authentication")
 	password := pflag.StringP("password", "p", "", "Password to use for authentication")
 
 	// Warning & Critical values for every metric
-	CPU_WARN := pflag.Float64P("cpu-warning", "cw", 50, "Provide the minimum for CPU usage warning")
-	CPU_CRIT := pflag.Float64P("cpu-critical", "cc", 90, "Provide the minimum for CPU usage critical")
-	MEM_WARN := pflag.Float64P("mem-warning", "mw", 50, "Provide the minimum for RAM usage warning")
-	MEM_CRIT := pflag.Float64P("mem-critical", "mc", 90, "Provide the minimum for RAM usage critical")
-	FAN_WARN := pflag.Float64P("fan-warning", "fw", 3000, "Provide the minimum for Fan speeds warning")
+	CPU_WARN := pflag.Float64("cpu-warning", 50, "Provide the minimum for CPU usage warning")
+	CPU_CRIT := pflag.Float64("cpu-critical", 90, "Provide the minimum for CPU usage critical")
+	MEM_WARN := pflag.Float64("mem-warning", 50, "Provide the minimum for RAM usage warning")
+	MEM_CRIT := pflag.Float64("mem-critical", 90, "Provide the minimum for RAM usage critical")
+	FAN_WARN := pflag.Float64("fan-warning", 3000, "Provide the minimum for Fan speeds warning")
 
-	TEMP_WARN := pflag.Float64P("temp-warning", "tw", 50, "Provide the minimum for Temperature warning")
-	TEMP_CRIT := pflag.Float64P("temp-critical", "tc", 70, "Provide the minimum for Temperature critical")
-	STATS_WARN := pflag.Float64P("stats-warning", "sw", 5, "Provide the minimum for Port statistics warning")
-	STATS_CRIT := pflag.Float64P("stats-critical", "sc", 20, "Provide the minimum for Port statistics critical")
+	TEMP_WARN := pflag.Float64("temp-warning", 50, "Provide the minimum for Temperature warning")
+	TEMP_CRIT := pflag.Float64("temp-critical", 70, "Provide the minimum for Temperature critical")
+	STATS_WARN := pflag.Float64("stats-warning", 5, "Provide the minimum for Port statistics warning")
+	STATS_CRIT := pflag.Float64("stats-critical", 20, "Provide the minimum for Port statistics critical")
 
 	// Ports to check if the mode 'ports' is present
 	portsToCheck := pflag.IntSlice("port", []int{1, 2, 3, 4, 5, 6, 7, 8}, "Ports to check")
@@ -107,7 +107,10 @@ func main() {
 			cpuCheck := result.PartialResult{
 				Output: fmt.Sprintf("CPU Usage: %.2f%%", cpuUsage),
 			}
-			cpuCheck.SetState(cpuStatus)
+			err := cpuCheck.SetState(cpuStatus)
+			if err != nil {
+				cpuCheck.SetState(check.Unknown)
+			}
 			cpuCheck.Perfdata.Add(&perfdata.Perfdata{
 				Label: "CPU",
 				Value: cpuUsage,
@@ -134,7 +137,10 @@ func main() {
 			memoryCheck := result.PartialResult{
 				Output: fmt.Sprintf("RAM Usage: %.2f%%", memoryUsage),
 			}
-			memoryCheck.SetState(memoryStatus)
+			err := memoryCheck.SetState(memoryStatus)
+			if err != nil {
+				memoryCheck.SetState(check.Unknown)
+			}
 			memoryCheck.Perfdata.Add(&perfdata.Perfdata{
 				Label: "RAM",
 				Value: memoryUsage,
@@ -171,7 +177,10 @@ func main() {
 				sub := result.PartialResult{
 					Output: fmt.Sprintf("%s: %.1f°C", desc, temp),
 				}
-				sub.SetState(status)
+				err := sub.SetState(status)
+				if err != nil {
+					sub.SetState(check.Unknown)
+				}
 				sub.Perfdata.Add(&perfdata.Perfdata{
 					Label: desc,
 					Value: temp,
@@ -179,7 +188,10 @@ func main() {
 				})
 				temperatureCheck.AddSubcheck(sub)
 			}
-			temperatureCheck.SetState(worstTempStatus)
+			err := temperatureCheck.SetState(worstTempStatus)
+			if err != nil {
+				temperatureCheck.SetState(check.Unknown)
+			}
 			o.AddSubcheck(temperatureCheck)
 		}
 
@@ -196,14 +208,20 @@ func main() {
 			fanSub := result.PartialResult{
 				Output: fmt.Sprintf("%s: %.0f RPM", fanName, fanSpeed),
 			}
-			fanSub.SetState(fanStatus)
+			err := fanSub.SetState(fanStatus)
+			if err != nil {
+				fanSub.SetState(check.Unknown)
+			}
 			fanSub.Perfdata.Add(&perfdata.Perfdata{
 				Label: "Fans speed",
 				Value: fanSpeed,
 				Min:   0,
 			})
 			fansCheck.AddSubcheck(fanSub)
-			fansCheck.SetState(fanStatus)
+			err = fansCheck.SetState(fanStatus)
+			if err != nil {
+				fansCheck.SetState(check.Unknown)
+			}
 			o.AddSubcheck(fansCheck)
 		}
 
@@ -264,7 +282,10 @@ func main() {
 					subInTotalPkts := result.PartialResult{
 						Output: fmt.Sprintf("Packet loss: %v%%; %v Bytes", packetLossPercentage, inOctets),
 					}
-					subInTotalPkts.SetState(status)
+					err := subInTotalPkts.SetState(status)
+					if err != nil {
+						subInTotalPkts.SetState(check.Unknown)
+					}
 					subInTotalPkts.Perfdata.Add(&perfdata.Perfdata{
 						Label: fmt.Sprintf("port %v packet loss", portNumber),
 						Value: packetLossPercentage,
@@ -273,7 +294,10 @@ func main() {
 					portsCheck.AddSubcheck(subInTotalPkts)
 				}
 
-				portsCheck.SetState(worstPortsStatus)
+				err := portsCheck.SetState(worstPortsStatus)
+				if err != nil {
+					portsCheck.SetState(check.Unknown)
+				}
 				o.AddSubcheck(portsCheck)
 			}
 		}
