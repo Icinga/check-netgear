@@ -263,7 +263,10 @@ func main() {
 					inTotalPkts := port.(map[string]any)["inTotalPkts"].(float64)
 					inDropPkts := port.(map[string]any)["inDropPkts"].(float64)
 					inOctets := port.(map[string]any)["inOctets"].(float64)
-					packetLossPercentage := inDropPkts / inTotalPkts * 100
+					packetLossPercentage := 0.0
+					if inTotalPkts > 0 {
+						packetLossPercentage = inDropPkts / inTotalPkts * 100
+					}
 					status := check.OK
 					if packetLossPercentage >= *STATS_CRIT { // Check for critical in dropped packets percentage
 						status = check.Critical
@@ -280,7 +283,7 @@ func main() {
 						worstPortsStatus = status
 					}
 					subInTotalPkts := result.PartialResult{
-						Output: fmt.Sprintf("Packet loss: %v%%; %v Bytes", packetLossPercentage, inOctets),
+						Output: fmt.Sprintf("Packet loss: %.2f%%; Total: %v", packetLossPercentage, human_bytes(uint64(inOctets))),
 					}
 					err := subInTotalPkts.SetState(status)
 					if err != nil {

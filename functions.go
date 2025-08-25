@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -157,4 +158,26 @@ func string_percent_to_float(percents string) float64 {
 		return 0
 	}
 	return to_return
+}
+
+func human_bytes(bytes uint64) string {
+	if bytes == 0 {
+		return "0 bytes"
+	}
+
+	const unit = 1024
+	sizes := []string{"bytes", "KiB", "MiB", "GiB", "TiB", "PiB"}
+
+	exp := int(math.Floor(math.Log(float64(bytes)) / math.Log(unit)))
+	if exp >= len(sizes) {
+		exp = len(sizes) - 1
+	}
+
+	value := float64(bytes) / math.Pow(unit, float64(exp))
+	s := fmt.Sprintf("%.2f %s", value, sizes[exp])
+	// Remove unnecessary decimals, like ".00"
+	if strings.HasSuffix(s, ".00 "+sizes[exp]) {
+		s = fmt.Sprintf("%.0f %s", value, sizes[exp])
+	}
+	return s
 }
