@@ -152,9 +152,9 @@ func port_statistics(statType string) []byte {
 	return body
 }
 
-func poe_status(port string) []byte {
+func poe_status() []byte {
 	req, err := http.NewRequest("GET",
-		fmt.Sprintf("%s/swcfg_poe?port=%s", *hostName, port), nil)
+		fmt.Sprintf("%s/swcfg_poe", *hostName), nil)
 	if err != nil {
 		check.ExitError(err)
 	}

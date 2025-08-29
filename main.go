@@ -62,6 +62,10 @@ func main() {
 		return
 	}
 
+	if slices.Contains(*mode, "all") {
+		*mode = append(*mode, "basic", "ports", "poe")
+	}
+
 	// Now everything is fine and the token is saved in a global variable in functions.go
 	// We can proceed with checking for every mode checked and doing corresponding stuff
 
@@ -231,6 +235,7 @@ func main() {
 		fmt.Println(o.GetOutput())
 	}
 
+	//Ports output
 	if slices.Contains(*mode, "ports") {
 		var dataIn map[string]any
 		portsIn := port_statistics("inbound")
@@ -356,6 +361,74 @@ func main() {
 		}
 
 		o.Add(worstStatus, "Ports Statistics")
+
+		// Output result
+		fmt.Println(o.GetOutput())
+	}
+
+	//Power over Ethernet output
+	if slices.Contains(*mode, "poe") {
+		var data map[string]any
+		inputData := poe_status()
+		err = json.Unmarshal(inputData, &data)
+		if err != nil {
+			panic(err)
+		}
+
+		poeInfo := data["poePortConfig"].([]interface{})
+
+		//STATUSES CALC
+		worstStatus := check.OK
+
+		// Create result container
+		o := result.Overall{}
+
+		// Ports checks
+		for _, poePort := range poeInfo {
+			portNumber := poePort.(map[string]any)["port"].(string)
+
+			worstPortsStatus := check.OK
+
+			enabledString := "disabled"
+			if poePort.(map[string]any)["enable"].(bool) {
+				enabledString = "enabled"
+			}
+			currentPower := poePort.(map[string]any)["currentPower"].(float64)
+			powerLimit := poePort.(map[string]any)["powerLimit"].(float64)
+
+			status := check.OK
+			if currentPower > powerLimit { // Critical if current power is somehow more than the limit
+				status = check.Critical
+				if worstStatus != check.Critical {
+					worstStatus = check.Critical
+				}
+			} else if currentPower == powerLimit { // Wanring if current power is at the limit
+				status = check.Warning
+				if worstStatus < check.Warning {
+					worstStatus = check.Warning
+				}
+			}
+			if status > worstPortsStatus {
+				worstPortsStatus = status
+			}
+
+			poeCheck := result.PartialResult{Output: fmt.Sprintf("Port %v is %v. Current power: %v/%vV", portNumber, enabledString, currentPower/1000, powerLimit/1000)}
+			poeCheck.Perfdata.Add(&perfdata.Perfdata{
+				Label: fmt.Sprintf("port %v power", portNumber),
+				Value: currentPower,
+				Min:   0,
+				Max:   powerLimit,
+			})
+
+			err = poeCheck.SetState(worstPortsStatus)
+			if err != nil {
+				poeCheck.SetState(check.Unknown)
+			}
+			o.AddSubcheck(poeCheck)
+
+		}
+
+		o.Add(worstStatus, "Power over Ethernet Statistics")
 
 		// Output result
 		fmt.Println(o.GetOutput())

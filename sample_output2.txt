@@ -1,0 +1,52 @@
+states: ok=1
+[OK] Device Info: Uptime - 4 days, 6 hrs, 8 mins, 19 secs
+\_ [OK] CPU Usage: 7.33%
+\_ [OK] RAM Usage: 32.90%
+\_ [OK] Temperature
+    \_ [OK] sensor-System1: 44.0°C
+    \_ [OK] sensor-MAC: 47.0°C
+    \_ [OK] sensor-System2: 45.0°C
+\_ [OK] Fans
+    \_ [OK] FAN-1: 0 RPM
+|CPU=7.33;;;0;100 RAM=32.9;;;0;100 sensor-System1=44;;;0 sensor-MAC=47;;;0 sensor-System2=45;;;0 'Fans speed'=0;;;0
+
+states: warning=1
+[WARNING] Ports Statistics
+\_ [OK] Port 1
+    \_ [OK] Total IN: 0 bytes; Packet loss: 0.00%
+    \_ [OK] Total OUT: 0 bytes; Packet loss: 0.00%
+\_ [OK] Port 2
+    \_ [OK] Total IN: 50.60 MiB; Packet loss: 0.00%
+    \_ [OK] Total OUT: 2.58 GiB; Packet loss: 0.00%
+\_ [OK] Port 3
+    \_ [OK] Total IN: 1.69 KiB; Packet loss: 0.00%
+    \_ [OK] Total OUT: 80.73 KiB; Packet loss: 0.00%
+\_ [WARNING] Port 4
+    \_ [WARNING] Total IN: 8.18 KiB; Packet loss: 12.50%
+    \_ [OK] Total OUT: 27.64 KiB; Packet loss: 0.00%
+\_ [WARNING] Port 5
+    \_ [WARNING] Total IN: 4.96 KiB; Packet loss: 7.32%
+    \_ [OK] Total OUT: 108.42 KiB; Packet loss: 0.00%
+\_ [OK] Port 6
+    \_ [OK] Total IN: 3.53 MiB; Packet loss: 0.12%
+    \_ [OK] Total OUT: 189.66 KiB; Packet loss: 0.00%
+\_ [OK] Port 7
+    \_ [OK] Total IN: 0 bytes; Packet loss: 0.00%
+    \_ [OK] Total OUT: 3.96 KiB; Packet loss: 0.00%
+\_ [OK] Port 8
+    \_ [OK] Total IN: 2.58 GiB; Packet loss: 0.01%
+    \_ [OK] Total OUT: 51.87 MiB; Packet loss: 0.00%
+|'port 1 in packet loss'=0;;;0;100 'port 1 out packet loss'=0;;;0;100 'port 2 in packet loss'=0.005;;;0;100 'port 2 out packet loss'=0;;;0;100 'port 3 in packet loss'=0;;;0;100 'port 3 out packet loss'=0;;;0;100 'port 4 in packet loss'=12.5;;;0;100 'port 4 out packet loss'=0;;;0;100 'port 5 in packet loss'=7.317;;;0;100 'port 5 out packet loss'=0;;;0;100 'port 6 in packet loss'=0.118;;;0;100 'port 6 out packet loss'=0;;;0;100 'port 7 in packet loss'=0;;;0;100 'port 7 out packet loss'=0;;;0;100 'port 8 in packet loss'=0.009;;;0;100 'port 8 out packet loss'=0;;;0;100
+
+states: ok=1
+[OK] Ports Statistics
+\_ [OK] Port 1 is enabled. Current power: 0/32V
+\_ [OK] Port 2 is enabled. Current power: 0/32V
+\_ [OK] Port 3 is enabled. Current power: 0/32V
+\_ [OK] Port 4 is enabled. Current power: 0/32V
+\_ [OK] Port 5 is enabled. Current power: 0/32V
+\_ [OK] Port 6 is enabled. Current power: 0/32V
+\_ [OK] Port 7 is enabled. Current power: 5.9/32V
+\_ [OK] Port 8 is enabled. Current power: 0/32V
+|'port 1 power'=0;;;0;32000 'port 2 power'=0;;;0;32000 'port 3 power'=0;;;0;32000 'port 4 power'=0;;;0;32000 'port 5 power'=0;;;0;32000 'port 6 power'=0;;;0;32000 'port 7 power'=5900;;;0;32000 'port 8 power'=0;;;0;32000
+
