@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"os"
 
 	"github.com/NETWAYS/go-check"
 	"github.com/NETWAYS/go-check/perfdata"
@@ -435,4 +436,5 @@ func main() {
 	}
 
 	logout()
+	os.Exit(worstStatus)
 }
