@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -42,7 +43,12 @@ func login(name, password string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Printf("Error closing body: %s\n", err)
+		}
+	}(resp.Body)
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -102,7 +108,12 @@ func device_info() []byte {
 	if err != nil {
 		check.ExitError(err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Printf("Error closing body: %s\n", err)
+		}
+	}(resp.Body)
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -126,7 +137,40 @@ func port_statistics(statType string) []byte {
 	if err != nil {
 		check.ExitError(err)
 	}
-	defer resp.Body.Close()
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Printf("Error closing body: %s\n", err)
+		}
+	}(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		check.ExitError(err)
+	}
+
+	return body
+}
+
+func poe_status() []byte {
+	req, err := http.NewRequest("GET",
+		fmt.Sprintf("%s/swcfg_poe", *hostName), nil)
+	if err != nil {
+		check.ExitError(err)
+	}
+	req.Header.Set("session", sessionToken)
+
+	client := &http.Client{Timeout: timeout}
+	resp, err := client.Do(req)
+	if err != nil {
+		check.ExitError(err)
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			fmt.Printf("Error closing body: %s\n", err)
+		}
+	}(resp.Body)
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -142,4 +186,26 @@ func string_percent_to_float(percents string) float64 {
 		return 0
 	}
 	return to_return
+}
+
+func human_bytes(bytes uint64) string {
+	if bytes == 0 {
+		return "0 bytes"
+	}
+
+	const unit = 1024
+	sizes := []string{"bytes", "KiB", "MiB", "GiB", "TiB", "PiB"}
+
+	exp := int(math.Floor(math.Log(float64(bytes)) / math.Log(unit)))
+	if exp >= len(sizes) {
+		exp = len(sizes) - 1
+	}
+
+	value := float64(bytes) / math.Pow(unit, float64(exp))
+	s := fmt.Sprintf("%.2f %s", value, sizes[exp])
+	// Remove unnecessary decimals, like ".00"
+	if strings.HasSuffix(s, ".00 "+sizes[exp]) {
+		s = fmt.Sprintf("%.0f %s", value, sizes[exp])
+	}
+	return s
 }
