@@ -13,6 +13,7 @@
 ## About
 The NETGEAR Monitoring Plugin is a lightweight Go-based command-line tool designed to collect and report hardware and network metrics from NETGEAR devices via their API.
 It provides output using go-check, allowing easy integration into Icinga 2 checks.
+**Important:** This plugin is intended **only for use with NETGEAR AV Line devices**. Use with other devices is not supported and may produce incorrect results.
 
 ### Features
 - Fetch and report:
