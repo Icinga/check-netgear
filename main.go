@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
 	"os"
+	"slices"
 
 	"github.com/NETWAYS/go-check"
 	"github.com/NETWAYS/go-check/perfdata"
@@ -23,7 +23,7 @@ func main() {
 	hidefans := pflag.Bool("nofans", false, "Hide the Fans info")
 
 	// Get arguments from the cli
-	mode := pflag.StringSlice("mode", []string{"basic"}, "Output modes to enable {basic|short}")
+	mode := pflag.StringSlice("mode", []string{"basic"}, "Output modes to enable {basic|ports|poe}")
 	hostName = pflag.StringP("hostname", "H", "http://192.168.112.7", "Hostname to use")
 	username := pflag.StringP("username", "u", "", "Username to use for authentication")
 	password := pflag.StringP("password", "p", "", "Password to use for authentication")
@@ -67,6 +67,9 @@ func main() {
 		*mode = append(*mode, "basic", "ports", "poe")
 	}
 
+	// worstStatus is needed for 'inheriting' the worst status from the lower levels to the top
+	worstStatus := check.OK
+
 	// Now everything is fine and the token is saved in a global variable in functions.go
 	// We can proceed with checking for every mode checked and doing corresponding stuff
 
@@ -92,9 +95,6 @@ func main() {
 
 		// Temperature details
 		sensorDetails := deviceInfo["sensor"].([]any)[0].(map[string]any)["details"].([]any)
-
-		// worstStatus is needed for 'inheriting' the worst status from the lower levels to the top
-		worstStatus := check.OK
 
 		// Create result container
 		o := result.Overall{}

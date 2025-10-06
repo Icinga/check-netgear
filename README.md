@@ -1,50 +1,75 @@
-# NETGEAR monitoring plugin
+# NETGEAR Monitoring Plugin for Icinga
 
-A lightweight Go-based CLI tool to monitor hardware metrics and port statistics from network devices via an API.
+## Table of Contents
+- [About](#about)  
+- [License](#license)  
+- [Documentation](#documentation)  
+- [Support](#support)  
+- [Requirements](#requirements)  
+- [Thanks](#thanks)  
+- [Contributing](#contributing)
+---
 
-## Features
+## About
+The NETGEAR Monitoring Plugin is a lightweight Go-based command-line tool designed to collect and report hardware and network metrics from NETGEAR devices via their API.
+It provides output using go-check, allowing easy integration into Icinga 2 checks.
+**Important:** This plugin is intended **only for use with NETGEAR AV Line devices**. Use with other devices is not supported and may produce incorrect results.
 
-- Fetches and reports:
-  - CPU usage
-  - RAM usage
-  - Fan speed
-  - Temperature sensors
-  - Port statistics (inbound, TODO outbound)
-- Icinga-compatible output using [`go-check`](https://github.com/NETWAYS/go-check)
+### Features
+- Fetch and report:
+  - CPU usage  
+  - RAM usage  
+  - Fan speed  
+  - Temperature sensors  
+  - Port statistics (inbound and outbound)
+  - PoE statistics (enabled state and current power)
+- Icinga-compatible check results with perfdata  
+- Configurable output via command-line flags  
+---
 
-## Usage
+## License
+This plugin is released under the MIT License.  
+See the included LICENSE file for full details.
 
-```bash
-go run main.go [flags]
-```
+This plugin uses the following third-party components:
 
-### Required Flags
+- go-check — MIT License  
+- spf13/pflag — BSD License  
 
-- `-u`, `--username` Username for API login  
-- `-p`, `--password` Password for API login
+---
 
-### Optional Flags
+## Documentation
 
-- `-H`, `--hostname`    Device hostname or IP (default: `http://192.168.112.19`)
-- `--mode`  Modes to display: `basic`, `ports` (default: `basic`)
-- `--port`  List of port numbers to check (default: 1–8)
-- `--nocpu` Hide CPU info
-- `--noram` Hide RAM info
-- `--notemp` Hide temperature info
-- `--nofans` Hide fans info
-- `-h`, `--help` Show help message
+### Installation
+1. Ensure you have Go installed (1.20 or newer).  
+2. Clone this repository and build the plugin:
+   ```bash
+   git clone https://git.icinga.com/obarbashyn/netgear-icinga-plugin.git
+   cd netgear-icinga-plugin
+3. The binary to deploy is located in bin/check-netgear
+
+
+## Required Flags
+- `-u`, `--username` — Username for API login
+- `-p`, `--password` — Password for API login
+
+## Optional Flags
+- `-H`, `--hostname` — Device hostname or IP (default: http://192.168.112.19)
+- `--mode` — Modes to display: basic, ports, poe (default: basic)
+- `--port` — List of port numbers to check (default: 1–8)
+- `--nocpu` — Hide CPU info
+- `--noram` — Hide RAM info
+- `--notemp` — Hide temperature info
+- `--nofans` — Hide fans info
+- `-h`, `--help` — Show help message
 
 ## Example
-
 ```bash
-go run main.go -u admin -p VerySecurePassword --mode basic --mode ports --port 1 --port 2 --port 3
+check_netgear -u admin -p VerySecurePassword --mode basic
 ```
 
-## Output
-
-Icinga-style status with perfdata, e.g.:
-
-```
+## Output Example
+```yaml
 [WARNING] Device Info: Uptime - 1 days, 0 hrs, 31 mins, 29 secs
 \_ [OK] CPU Usage: 7.13%
 \_ [OK] RAM Usage: 32.46%
@@ -57,11 +82,19 @@ Icinga-style status with perfdata, e.g.:
 |CPU=7.13;;;0;100 RAM=32.46;;;0;100 sensor-System1=44;;;0 sensor-MAC=47;;;0 sensor-System2=45;;;0 'Fans speed'=0;;;0
 ```
 
-## Dependencies
+## Support
+For questions, suggestions, or issues, please reach out through the Icinga community channels or open an issue in the project repository.
 
-- [go-check](https://github.com/NETWAYS/go-check)
-- [spf13/pflag](https://github.com/spf13/pflag)
+## Requirements
+Go 1.20 or higher
+Icinga 2
 
-## License
+## Thanks
+Special thanks to the NETWAYS team for the go-check library.
 
-MIT License
+# Contributing
+Contributions are welcome!
+You can help by:
+- Submitting bug fixes
+- Testing on different NETGEAR devices
+- Improving documentation or examples
