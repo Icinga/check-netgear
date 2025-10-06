@@ -12,7 +12,7 @@
 
 ## About
 The NETGEAR Monitoring Plugin is a lightweight Go-based command-line tool designed to collect and report hardware and network metrics from NETGEAR devices via their API.
-It provides output using go-check, allowing easy integration into Icinga2 checks.
+It provides output using go-check, allowing easy integration into Icinga 2 checks.
 
 ### Features
 - Fetch and report:
@@ -45,8 +45,7 @@ This plugin uses the following third-party components:
    ```bash
    git clone https://git.icinga.com/obarbashyn/netgear-icinga-plugin.git
    cd netgear-icinga-plugin
-   go build -o check_netgear main.go functions.go
-3. Deploy the binary to your Icinga2 system.
+3. The binary to deploy is located in bin/check-netgear
 
 
 ## Required Flags
