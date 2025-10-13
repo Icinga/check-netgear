@@ -28,20 +28,20 @@ It provides output using go-check, allowing easy integration into Icinga 2 check
 ---
 
 ## License
-This plugin is released under the MIT License.  
+This plugin is released under the GPL 2.0 License.  
 See the included LICENSE file for full details.
 
 This plugin uses the following third-party components:
 
-- go-check — MIT License  
-- spf13/pflag — BSD License  
+- go-check — GPL 2.0 License
+- spf13/pflag — BSD License
 
 ---
 
 ## Documentation
 
 ### Installation
-1. Ensure you have Go installed (1.20 or newer).  
+1. Ensure you have Go installed (1.20 or newer).
 2. Clone this repository and build the plugin:
    ```bash
    git clone https://git.icinga.com/obarbashyn/netgear-icinga-plugin.git
