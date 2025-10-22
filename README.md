@@ -44,7 +44,7 @@ This plugin uses the following third-party components:
 1. Ensure you have Go installed (1.20 or newer).
 2. Clone this repository and build the plugin:
    ```bash
-   git clone https://git.icinga.com/obarbashyn/netgear-icinga-plugin.git
+   git clone git@github.com:Icinga/check-netgear.git
    cd netgear-icinga-plugin
 3. The binary to deploy is located in bin/check-netgear
 
