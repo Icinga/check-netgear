@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"main/internal/checks"
-	"main/internal/utils"
 	"main/netgear"
 	"os"
 	"slices"

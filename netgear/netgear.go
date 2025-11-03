@@ -160,10 +160,6 @@ func (n *Netgear) doRequestURL(method string, u *url.URL, body io.Reader) ([]byt
 	return data, nil
 }
 
-func StringPercentToFloat(percents string) float64 {
-	toReturn, err := strconv.ParseFloat(strings.TrimSuffix(percents, "%"), 64)
-	if err != nil {
-		panic(fmt.Errorf("invalid percent %q: %w", percents, err))
-	}
-	return toReturn
+func StringPercentToFloat(percents string) (float64, error) {
+	return strconv.ParseFloat(strings.TrimSuffix(percents, "%"), 64)
 }

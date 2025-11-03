@@ -96,8 +96,8 @@ func CheckPorts(inRows, outRows []netgear.PortStatisticRow, portsToCheck []int, 
 		inStatus := utils.StatusByThreshold(inLoss, warn, crit)
 		outStatus := utils.StatusByThreshold(outLoss, warn, crit)
 
-		portStatus := utils.MaxStatus(inStatus, outStatus)
-		worst = utils.MaxStatus(worst, portStatus)
+		portStatus := max(inStatus, outStatus)
+		worst = max(worst, portStatus)
 
 		addPerfSubcheck := func(label string, loss float64, status int) {
 			sub := result.PartialResult{
@@ -140,7 +140,7 @@ func CheckPoe(ports []netgear.PoePort) (result.PartialResult, int) {
 			status = check.Warning
 		}
 
-		worst = utils.MaxStatus(worst, status)
+		worst = max(worst, status)
 
 		poeCheck := result.PartialResult{
 			Output: fmt.Sprintf(
