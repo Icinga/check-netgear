@@ -1,24 +1,26 @@
 package netgear
 
-// basic infop
-
 type DeviceInfoDetails struct {
 	Uptime string `json:"upTime"`
 }
 
+type FanDetail struct {
+	Speed       float64 `json:"speed"`
+	Description string  `json:"desc"`
+}
+
 type Fan struct {
-	Details []struct {
-		Speed       float64 `json:"speed"`
-		Description string  `json:"desc"`
-	} `json:"details"`
+	Details []FanDetail `json:"details"`
+}
+
+type SensorDetail struct {
+	Description string  `json:"desc"`
+	Temperature float64 `json:"temp"`
+	MaxTemp     float64 `json:"maxTemp"`
 }
 
 type Sensor struct {
-	Details []struct {
-		Description string  `json:"desc"`
-		Temperature float64 `json:"temp"`
-		MaxTemp     float64 `json:"maxTemp"`
-	} `json:"details"`
+	Details []SensorDetail `json:"details"`
 }
 
 type DeviceInfo struct {

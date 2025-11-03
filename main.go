@@ -2,72 +2,106 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
+	"main/internal/checks"
+	"main/internal/utils"
 	"main/netgear"
 	"os"
 	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/NETWAYS/go-check"
-	"github.com/NETWAYS/go-check/perfdata"
 	"github.com/NETWAYS/go-check/result"
-	"github.com/spf13/pflag"
 )
 
-func main() {
-	hidecpu := pflag.Bool("nocpu", false, "Hide the CPU info")
-	hidemem := pflag.Bool("nomem", false, "Hide the RAM info")
-	hidetemp := pflag.Bool("notemp", false, "Hide the Temperature info")
-	hidefans := pflag.Bool("nofans", false, "Hide the Fans info")
+// So that flag supports slices
+type stringSliceFlag []string
 
-	mode := pflag.StringSlice("mode", []string{"basic"}, "Output modes to enable {basic|ports|poe|all}")
-	hostName := pflag.StringP("hostname", "H", "http://192.168.112.7", "Hostname to use")
-	username := pflag.StringP("username", "u", "", "Username for authentication")
-	password := pflag.StringP("password", "p", "", "Password for authentication")
+func (s *stringSliceFlag) String() string { return strings.Join(*s, ",") }
+func (s *stringSliceFlag) Set(v string) error {
+	*s = append(*s, v)
+	return nil
+}
+
+type intSliceFlag []int
+
+func (i *intSliceFlag) String() string {
+	parts := make([]string, 0, len(*i))
+	for _, v := range *i {
+		parts = append(parts, strconv.Itoa(v))
+	}
+	return strings.Join(parts, ",")
+}
+func (i *intSliceFlag) Set(v string) error {
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return err
+	}
+	*i = append(*i, n)
+	return nil
+}
+
+func main() {
+	hidecpu := flag.Bool("nocpu", false, "Hide the CPU info")
+	hidemem := flag.Bool("nomem", false, "Hide the RAM info")
+	hidetemp := flag.Bool("notemp", false, "Hide the Temperature info")
+	hidefans := flag.Bool("nofans", false, "Hide the Fans info")
+
+	var mode stringSliceFlag = []string{"basic"}
+	flag.Var(&mode, "mode", "Output modes to enable {basic|ports|poe|all} (repeatable)")
+
+	baseURL := flag.String("base-url", "http://192.168.1.1", "Base URL to use")
+	flag.StringVar(baseURL, "H", "http://192.168.1.1", "Base URL to use (shorthand)")
+
+	username := flag.String("username", "", "Username for authentication")
+	flag.StringVar(username, "u", "", "Username for authentication (shorthand)")
+	password := flag.String("password", "", "Password for authentication")
+	flag.StringVar(password, "p", "", "Password for authentication (shorthand)")
 
 	// Thresholds
-	CPU_WARN := pflag.Float64("cpu-warning", 50, "CPU usage warning threshold")
-	CPU_CRIT := pflag.Float64("cpu-critical", 90, "CPU usage critical threshold")
-	MEM_WARN := pflag.Float64("mem-warning", 50, "RAM usage warning threshold")
-	MEM_CRIT := pflag.Float64("mem-critical", 90, "RAM usage critical threshold")
-	FAN_WARN := pflag.Float64("fan-warning", 3000, "Fan speed warning threshold")
-	TEMP_WARN := pflag.Float64("temp-warning", 50, "Temperature warning threshold")
-	TEMP_CRIT := pflag.Float64("temp-critical", 70, "Temperature critical threshold")
-	STATS_WARN := pflag.Float64("stats-warning", 5, "Port stats warning threshold")
-	STATS_CRIT := pflag.Float64("stats-critical", 20, "Port stats critical threshold")
+	cpuWarn := flag.Float64("cpu-warning", 50, "CPU usage warning threshold")
+	cpuCrit := flag.Float64("cpu-critical", 90, "CPU usage critical threshold")
+	memWarn := flag.Float64("mem-warning", 50, "RAM usage warning threshold")
+	memCrit := flag.Float64("mem-critical", 90, "RAM usage critical threshold")
+	fanWarn := flag.Float64("fan-warning", 3000, "Fan speed warning threshold")
+	tempWarn := flag.Float64("temp-warning", 50, "Temperature warning threshold")
+	tempCrit := flag.Float64("temp-critical", 70, "Temperature critical threshold")
+	statsWarn := flag.Float64("stats-warning", 5, "Port stats warning threshold")
+	statsCrit := flag.Float64("stats-critical", 20, "Port stats critical threshold")
 
-	portsToCheck := pflag.IntSlice("port", []int{1, 2, 3, 4, 5, 6, 7, 8}, "Ports to check")
-	help := pflag.BoolP("help", "h", false, "Show this help")
+	var portsToCheck intSliceFlag = []int{1, 2, 3, 4, 5, 6, 7, 8}
+	flag.Var(&portsToCheck, "port", "Ports to check (repeatable)")
 
-	pflag.Parse()
+	help := flag.Bool("help", false, "Show this help")
+	flag.BoolVar(help, "h", false, "Show this help (shorthand)")
+
+	flag.Parse()
 
 	if *help || *username == "" || *password == "" {
-		pflag.Usage()
+		flag.Usage()
 		return
 	}
 
-	n := netgear.NewNetgear(*hostName, *username, *password)
+	n := netgear.NewNetgear(*baseURL, *username, *password)
 	if err := n.Login(); err != nil {
 		fmt.Printf("Error while trying to login: %v\n", err)
-		return
+		os.Exit(int(check.Unknown))
 	}
 	defer func() { _ = n.Logout() }()
 
-	if slices.Contains(*mode, "all") {
-		*mode = append(*mode, "basic", "ports", "poe")
+	if slices.Contains(mode, "all") {
+		mode = append(mode, "basic", "ports", "poe")
 	}
 
 	worstStatus := check.OK
 
 	// Basic check
-	if slices.Contains(*mode, "basic") {
-		var deviceInfo netgear.DeviceInfo
-		inputData, err := n.DeviceInfo()
+	if slices.Contains(mode, "basic") {
+		deviceInfo, err := n.DeviceInfo()
 		if err != nil {
 			fmt.Printf("Error retrieving device info: %v\n", err)
-			os.Exit(int(check.Unknown))
-		}
-		if err := json.Unmarshal(inputData, &deviceInfo); err != nil {
-			fmt.Printf("Failed to parse JSON: %v\n", err)
 			os.Exit(int(check.Unknown))
 		}
 
@@ -83,67 +117,30 @@ func main() {
 
 		// CPU
 		if !*hidecpu {
-			cpuStatus := statusByThreshold(cpuUsage, *CPU_WARN, *CPU_CRIT)
-			worstStatus = maxStatus(worstStatus, cpuStatus)
-			cpuCheck := result.PartialResult{
-				Output: fmt.Sprintf("CPU Usage: %.2f%%", cpuUsage),
-			}
-			_ = cpuCheck.SetState(cpuStatus)
-			cpuCheck.Perfdata.Add(&perfdata.Perfdata{Label: "CPU", Value: cpuUsage, Min: 0, Max: 100})
-			o.AddSubcheck(cpuCheck)
+			cpuPartial, cpuStatus := checks.CheckCPU(cpuUsage, *cpuWarn, *cpuCrit)
+			worstStatus = max(worstStatus, cpuStatus)
+			o.AddSubcheck(cpuPartial)
 		}
 
 		// Memory
 		if !*hidemem {
-			memStatus := statusByThreshold(memUsage, *MEM_WARN, *MEM_CRIT)
-			worstStatus = maxStatus(worstStatus, memStatus)
-			memCheck := result.PartialResult{
-				Output: fmt.Sprintf("RAM Usage: %.2f%%", memUsage),
-			}
-			_ = memCheck.SetState(memStatus)
-			memCheck.Perfdata.Add(&perfdata.Perfdata{Label: "RAM", Value: memUsage, Min: 0, Max: 100})
-			o.AddSubcheck(memCheck)
+			memPartial, memStatus := checks.CheckMemory(memUsage, *memWarn, *memCrit)
+			worstStatus = max(worstStatus, memStatus)
+			o.AddSubcheck(memPartial)
 		}
 
 		// Temperature
 		if !*hidetemp {
-			tempCheck := result.PartialResult{Output: "Temperature"}
-			worstTempStatus := check.OK
-			for _, s := range sensorDetails {
-				desc := s.Description
-				temp := s.Temperature
-				status := statusByThreshold(temp, *TEMP_WARN, *TEMP_CRIT)
-				worstTempStatus = maxStatus(worstTempStatus, status)
-				worstStatus = maxStatus(worstStatus, status)
-
-				sub := result.PartialResult{
-					Output: fmt.Sprintf("%s: %.1f°C", desc, temp),
-				}
-				_ = sub.SetState(status)
-				sub.Perfdata.Add(&perfdata.Perfdata{Label: desc, Value: temp, Min: 0})
-				tempCheck.AddSubcheck(sub)
-			}
-			_ = tempCheck.SetState(worstTempStatus)
-			o.AddSubcheck(tempCheck)
+			tempPartial, tempStatus := checks.CheckTemperature(sensorDetails, *tempWarn, *tempCrit)
+			worstStatus = max(worstStatus, tempStatus)
+			o.AddSubcheck(tempPartial)
 		}
+
 		// Fans
 		if !*hidefans {
-			fanStatus := check.OK
-			if fanSpeed > *FAN_WARN {
-				fanStatus = check.Warning
-				worstStatus = maxStatus(worstStatus, fanStatus)
-			}
-			fansCheck := result.PartialResult{Output: "Fans"}
-			fanSub := result.PartialResult{
-				Output: fmt.Sprintf("%s: %.0f RPM", fanName, fanSpeed),
-			}
-			_ = fanSub.SetState(fanStatus)
-			fanSub.Perfdata.Add(&perfdata.Perfdata{
-				Label: "Fan Speed", Value: fanSpeed, Min: 0,
-			})
-			fansCheck.AddSubcheck(fanSub)
-			_ = fansCheck.SetState(fanStatus)
-			o.AddSubcheck(fansCheck)
+			fanPartial, fanStatus := checks.CheckFans(fanName, fanSpeed, *fanWarn)
+			worstStatus = max(worstStatus, fanStatus)
+			o.AddSubcheck(fanPartial)
 		}
 
 		o.Add(worstStatus, fmt.Sprintf("Device Info: Uptime - %v", upTime))
@@ -151,7 +148,7 @@ func main() {
 	}
 
 	// ports
-	if slices.Contains(*mode, "ports") {
+	if slices.Contains(mode, "ports") {
 		var inStats, outStats netgear.PortStatistics
 		portsIn, _ := n.PortStatistics("inbound")
 		portsOut, _ := n.PortStatistics("outbound")
@@ -162,115 +159,24 @@ func main() {
 		outRows := outStats.PortStatistics.Rows
 
 		o := result.Overall{}
-		worstPortsStatus := check.OK
-
-		for i := range inRows {
-			in := inRows[i]
-			out := outRows[i]
-			portNumber := in.Port
-
-			if slices.Contains(*portsToCheck, portNumber) {
-				portCheck := result.PartialResult{Output: fmt.Sprintf("Port %v", portNumber)}
-				inLoss := lossPercent(in.InDropPkts, in.InTotalPkts)
-				outLoss := lossPercent(out.OutDropPkts, out.OutTotalPkts)
-
-				inStatus := statusByThreshold(inLoss, *STATS_WARN, *STATS_CRIT)
-				outStatus := statusByThreshold(outLoss, *STATS_WARN, *STATS_CRIT)
-				portStatus := maxStatus(inStatus, outStatus)
-				worstPortsStatus = maxStatus(worstPortsStatus, portStatus)
-				worstStatus = maxStatus(worstStatus, portStatus)
-
-				addPerfSubcheck := func(label string, loss float64, status int) {
-					sub := result.PartialResult{
-						Output: fmt.Sprintf("%s: %.2f%% loss", label, loss),
-					}
-					_ = sub.SetState(status)
-					sub.Perfdata.Add(&perfdata.Perfdata{
-						Label: fmt.Sprintf("port %v %s loss", portNumber, label),
-						Value: loss, Min: 0, Max: 100,
-					})
-					portCheck.AddSubcheck(sub)
-				}
-
-				addPerfSubcheck("IN", inLoss, inStatus)
-				addPerfSubcheck("OUT", outLoss, outStatus)
-
-				_ = portCheck.SetState(portStatus)
-				o.AddSubcheck(portCheck)
-			}
-		}
-
-		o.Add(worstPortsStatus, "Ports Statistics")
+		portsPartial, portsStatus := checks.CheckPorts(inRows, outRows, portsToCheck, *statsWarn, *statsCrit)
+		worstStatus = max(worstStatus, portsStatus)
+		o.AddSubcheck(portsPartial)
 		fmt.Println(o.GetOutput())
 	}
 
 	// poe stuff
-	if slices.Contains(*mode, "poe") {
+	if slices.Contains(mode, "poe") {
 		o := result.Overall{}
-		worstPoeStatus := check.OK
 		var poeStatus netgear.PoeStatus
 		inputData, _ := n.PoeStatus()
 		_ = json.Unmarshal(inputData, &poeStatus)
 
-		for _, port := range poeStatus.PoePortConfig {
-			state := "disabled"
-			if port.Enable {
-				state = "enabled"
-			}
-
-			status := check.OK
-			if port.CurrentPower > port.PowerLimit {
-				status = check.Critical
-			} else if port.CurrentPower == port.PowerLimit {
-				status = check.Warning
-			}
-
-			worstPoeStatus = maxStatus(worstPoeStatus, status)
-			worstStatus = maxStatus(worstStatus, status)
-
-			poeCheck := result.PartialResult{
-				Output: fmt.Sprintf(
-					"Port %v is %v. Current power: %.2f/%.2fV",
-					port.Port, state, port.CurrentPower/1000, port.PowerLimit/1000,
-				),
-			}
-			_ = poeCheck.SetState(status)
-			poeCheck.Perfdata.Add(&perfdata.Perfdata{
-				Label: fmt.Sprintf("port %v power", port.Port),
-				Value: port.CurrentPower, Min: 0, Max: port.PowerLimit,
-			})
-			o.AddSubcheck(poeCheck)
-		}
-
-		o.Add(worstPoeStatus, "Power over Ethernet Statistics")
+		poePartial, poeWorst := checks.CheckPoe(poeStatus.PoePortConfig)
+		worstStatus = max(worstStatus, poeWorst)
+		o.AddSubcheck(poePartial)
 		fmt.Println(o.GetOutput())
 	}
 
-	os.Exit(int(worstStatus))
-}
-
-// util
-func statusByThreshold(value, warn, crit float64) int {
-	switch {
-	case value >= crit:
-		return check.Critical
-	case value >= warn:
-		return check.Warning
-	default:
-		return check.OK
-	}
-}
-
-func maxStatus(a, b int) int {
-	if b > a {
-		return b
-	}
-	return a
-}
-
-func lossPercent(drop, total float64) float64 {
-	if total <= 0 {
-		return 0
-	}
-	return drop / total * 100
+	os.Exit(worstStatus)
 }
