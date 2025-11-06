@@ -1,0 +1,4 @@
+github.com/NETWAYS/go-check v0.6.3 h1:Rcunu4JvlulbKjIef1H4pUiFO88atANpJ1YAqIwcJxI=
+github.com/NETWAYS/go-check v0.6.3/go.mod h1:8/GWnq8SirreAixgRmcp82JG16NnEl38rHq9phICy9s=
+github.com/spf13/pflag v1.0.10 h1:4EBh2KAYBwaONj6b2Ye1GiHfwjqyROoF4RwYO+vPwFk=
+github.com/spf13/pflag v1.0.10/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
