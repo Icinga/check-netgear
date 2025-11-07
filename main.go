@@ -82,7 +82,7 @@ func main() {
 	n, err := netgear.NewNetgear(*baseURL, *username, *password)
 	if err != nil {
 		fmt.Printf("URL error: %v", err)
-		os.Exit(1)
+		os.Exit(check.Unknown)
 	}
 	if err := n.Login(); err != nil {
 		fmt.Printf("Error while trying to login: %v\n", err)
@@ -118,7 +118,9 @@ func main() {
 		if !*hidecpu {
 			cpuPartial, err := checks.CheckCPU(cpuUsage, *cpuWarn, *cpuCrit)
 			if err != nil {
-				fmt.Printf("Error checking CPU: %v\n", err)
+				errRes := result.NewPartialResult()
+				errRes.Output = fmt.Sprintf("CPU check error: %v", err)
+				o.AddSubcheck(errRes)
 			} else {
 				worstStatus = max(worstStatus, cpuPartial.GetStatus())
 				o.AddSubcheck(*cpuPartial)
@@ -129,7 +131,9 @@ func main() {
 		if !*hidemem {
 			memPartial, err := checks.CheckMemory(memUsage, *memWarn, *memCrit)
 			if err != nil {
-				fmt.Printf("Error checking memory: %v\n", err)
+				errRes := result.NewPartialResult()
+				errRes.Output = fmt.Sprintf("Memory check error: %v", err)
+				o.AddSubcheck(errRes)
 			} else {
 				worstStatus = max(worstStatus, memPartial.GetStatus())
 				o.AddSubcheck(*memPartial)
@@ -140,7 +144,9 @@ func main() {
 		if !*hidetemp {
 			tempPartial, err := checks.CheckTemperature(sensorDetails, *tempWarn, *tempCrit)
 			if err != nil {
-				fmt.Printf("Error checking temperature: %v\n", err)
+				errRes := result.NewPartialResult()
+				errRes.Output = fmt.Sprintf("Temperatuer check error: %v", err)
+				o.AddSubcheck(errRes)
 			} else {
 				worstStatus = max(worstStatus, tempPartial.GetStatus())
 				o.AddSubcheck(*tempPartial)
@@ -151,7 +157,9 @@ func main() {
 		if !*hidefans {
 			fanPartial, err := checks.CheckFans(fanName, fanSpeed, *fanWarn)
 			if err != nil {
-				fmt.Printf("Error checking fans: %v\n", err)
+				errRes := result.NewPartialResult()
+				errRes.Output = fmt.Sprintf("Fans check error: %v", err)
+				o.AddSubcheck(errRes)
 			} else {
 				worstStatus = max(worstStatus, fanPartial.GetStatus())
 				o.AddSubcheck(*fanPartial)
@@ -164,24 +172,28 @@ func main() {
 
 	// ports
 	if slices.Contains(mode, "ports") {
+		o := result.Overall{}
 		portsIn, err := n.PortStatistics("inbound")
 		if err != nil {
-			fmt.Printf("Error retrieving inbound port stats: %v\n", err)
-			os.Exit(int(check.Unknown))
+			errRes := result.NewPartialResult()
+			errRes.Output = fmt.Sprintf("Inbound port check error: %v", err)
+			o.AddSubcheck(errRes)
 		}
 		portsOut, err := n.PortStatistics("outbound")
 		if err != nil {
-			fmt.Printf("Error retrieving outbound port stats: %v\n", err)
-			os.Exit(int(check.Unknown))
+			errRes := result.NewPartialResult()
+			errRes.Output = fmt.Sprintf("Outbound port check error: %v", err)
+			o.AddSubcheck(errRes)
 		}
 
 		inRows := portsIn.PortStatistics.Rows
 		outRows := portsOut.PortStatistics.Rows
 
-		o := result.Overall{}
 		portsPartial, err := checks.CheckPorts(inRows, outRows, portsToCheck, *statsWarn, *statsCrit)
 		if err != nil {
-			fmt.Printf("Error checking ports: %v\n", err)
+			errRes := result.NewPartialResult()
+			errRes.Output = fmt.Sprintf("Ports check error: %v", err)
+			o.AddSubcheck(errRes)
 		} else {
 			worstStatus = max(worstStatus, portsPartial.GetStatus())
 			o.AddSubcheck(*portsPartial)
@@ -194,13 +206,16 @@ func main() {
 		o := result.Overall{}
 		poeStatus, err := n.PoeStatus()
 		if err != nil {
-			fmt.Printf("Error retrieving PoE status: %v\n", err)
-			os.Exit(int(check.Unknown))
+			errRes := result.NewPartialResult()
+			errRes.Output = fmt.Sprintf("PoE check error: %v", err)
+			o.AddSubcheck(errRes)
 		}
 
 		poePartial, err := checks.CheckPoe(poeStatus.PoePortConfig)
 		if err != nil {
-			fmt.Printf("Error checking poe: %v\n", err)
+			errRes := result.NewPartialResult()
+			errRes.Output = fmt.Sprintf("PoE check error: %v", err)
+			o.AddSubcheck(errRes)
 		} else {
 			worstStatus = max(worstStatus, poePartial.GetStatus())
 			o.AddSubcheck(*poePartial)

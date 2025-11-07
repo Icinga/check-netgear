@@ -28,9 +28,6 @@ func NewNetgear(hostName, username, password string) (*Netgear, error) {
 	if err != nil {
 		return nil, err
 	}
-	if u == nil {
-		u = &url.URL{}
-	}
 	// be sure that the base path is /api/v1 using JoinPath
 	u = u.JoinPath("api", "v1")
 
