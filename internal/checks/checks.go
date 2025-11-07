@@ -2,39 +2,43 @@ package checks
 
 import (
 	"fmt"
-
-	"github.com/icinga/check-netgear/internal/utils"
-	"github.com/icinga/check-netgear/netgear"
+	"slices"
 
 	"github.com/NETWAYS/go-check"
 	"github.com/NETWAYS/go-check/perfdata"
 	"github.com/NETWAYS/go-check/result"
+	"github.com/icinga/check-netgear/internal/utils"
+	"github.com/icinga/check-netgear/netgear"
 )
 
-// CPU
-func CheckCPU(cpuUsage float64, warn float64, crit float64) (result.PartialResult, int) {
+// CheckCPU creates a partialResult with the CPU information
+func CheckCPU(cpuUsage float64, warn float64, crit float64) (*result.PartialResult, error) {
 	status := utils.StatusByThreshold(cpuUsage, warn, crit)
 	partial := result.PartialResult{
 		Output: fmt.Sprintf("CPU Usage: %.2f%%", cpuUsage),
 	}
-	_ = partial.SetState(status)
+	if err := partial.SetState(status); err != nil {
+		return nil, err
+	}
 	partial.Perfdata.Add(&perfdata.Perfdata{Label: "CPU", Value: cpuUsage, Min: 0, Max: 100})
-	return partial, status
+	return &partial, nil
 }
 
-// Memory
-func CheckMemory(memUsage float64, warn float64, crit float64) (result.PartialResult, int) {
+// CheckMemory creates a partialResult with the memory information
+func CheckMemory(memUsage float64, warn float64, crit float64) (*result.PartialResult, error) {
 	status := utils.StatusByThreshold(memUsage, warn, crit)
 	partial := result.PartialResult{
 		Output: fmt.Sprintf("RAM Usage: %.2f%%", memUsage),
 	}
-	_ = partial.SetState(status)
+	if err := partial.SetState(status); err != nil {
+		return nil, err
+	}
 	partial.Perfdata.Add(&perfdata.Perfdata{Label: "RAM", Value: memUsage, Min: 0, Max: 100})
-	return partial, status
+	return &partial, nil
 }
 
-// Temperature
-func CheckTemperature(sensors []netgear.SensorDetail, warn float64, crit float64) (result.PartialResult, int) {
+// CheckTemperature creates a partialResult with the temperature information
+func CheckTemperature(sensors []netgear.SensorDetail, warn float64, crit float64) (*result.PartialResult, error) {
 	partial := result.PartialResult{Output: "Temperature"}
 	worst := check.OK
 
@@ -47,17 +51,19 @@ func CheckTemperature(sensors []netgear.SensorDetail, warn float64, crit float64
 		sub := result.PartialResult{
 			Output: fmt.Sprintf("%s: %.1f°C", s.Description, s.Temperature),
 		}
-		_ = sub.SetState(status)
+		if err := sub.SetState(status); err != nil {
+			return nil, err
+		}
 		sub.Perfdata.Add(&perfdata.Perfdata{Label: s.Description, Value: s.Temperature, Min: 0})
 		partial.AddSubcheck(sub)
 	}
 
 	_ = partial.SetState(worst)
-	return partial, worst
+	return &partial, nil
 }
 
-// Fans
-func CheckFans(fanName string, fanSpeed float64, warn float64) (result.PartialResult, int) {
+// CheckFans creates a partialResult with the fans information
+func CheckFans(fanName string, fanSpeed float64, warn float64) (*result.PartialResult, error) {
 	status := check.OK
 	if fanSpeed > warn {
 		status = check.Warning
@@ -67,16 +73,20 @@ func CheckFans(fanName string, fanSpeed float64, warn float64) (result.PartialRe
 	sub := result.PartialResult{
 		Output: fmt.Sprintf("%s: %.0f RPM", fanName, fanSpeed),
 	}
-	_ = sub.SetState(status)
+	if err := sub.SetState(status); err != nil {
+		return nil, err
+	}
 	sub.Perfdata.Add(&perfdata.Perfdata{Label: "Fan Speed", Value: fanSpeed, Min: 0})
 	partial.AddSubcheck(sub)
-	_ = partial.SetState(status)
+	if err := partial.SetState(status); err != nil {
+		return nil, err
+	}
 
-	return partial, status
+	return &partial, nil
 }
 
-// Ports
-func CheckPorts(inRows, outRows []netgear.PortStatisticRow, portsToCheck []int, warn float64, crit float64) (result.PartialResult, int) {
+// CheckPorts creates a partialResult with the port information
+func CheckPorts(inRows, outRows []netgear.PortStatisticRow, portsToCheck []int, warn float64, crit float64) (*result.PartialResult, error) {
 	overall := result.PartialResult{Output: "Ports Statistics"}
 	worst := check.OK
 
@@ -84,7 +94,7 @@ func CheckPorts(inRows, outRows []netgear.PortStatisticRow, portsToCheck []int, 
 		in := inRows[i]
 		out := outRows[i]
 
-		if !contains(portsToCheck, in.Port) {
+		if !slices.Contains(portsToCheck, in.Port) {
 			continue
 		}
 
@@ -114,16 +124,20 @@ func CheckPorts(inRows, outRows []netgear.PortStatisticRow, portsToCheck []int, 
 		addPerfSubcheck("IN", inLoss, inStatus)
 		addPerfSubcheck("OUT", outLoss, outStatus)
 
-		_ = portCheck.SetState(portStatus)
+		if err := portCheck.SetState(portStatus); err != nil {
+			return nil, err
+		}
 		overall.AddSubcheck(portCheck)
 	}
 
-	_ = overall.SetState(worst)
-	return overall, worst
+	if err := overall.SetState(worst); err != nil {
+		return nil, err
+	}
+	return &overall, nil
 }
 
-// Poe
-func CheckPoe(ports []netgear.PoePort) (result.PartialResult, int) {
+// CheckPoe creates a partialResult with information about every port's POE status
+func CheckPoe(ports []netgear.PoePort) (*result.PartialResult, error) {
 	partial := result.PartialResult{Output: "Power over Ethernet Statistics"}
 	worst := check.OK
 
@@ -156,16 +170,8 @@ func CheckPoe(ports []netgear.PoePort) (result.PartialResult, int) {
 		partial.AddSubcheck(poeCheck)
 	}
 
-	_ = partial.SetState(worst)
-	return partial, worst
-}
-
-// helper
-func contains(list []int, x int) bool {
-	for _, v := range list {
-		if v == x {
-			return true
-		}
+	if err := partial.SetState(worst); err != nil {
+		return nil, err
 	}
-	return false
+	return &partial, nil
 }
