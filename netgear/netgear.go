@@ -18,13 +18,16 @@ type Netgear struct {
 	sessionToken string
 	client       *http.Client
 
-	baseUrl  url.URL
+	baseUrl  *url.URL
 	username string
 	password string
 }
 
-func NewNetgear(hostName, username, password string) *Netgear {
-	u, _ := url.Parse(strings.TrimSpace(hostName))
+func NewNetgear(hostName, username, password string) (*Netgear, error) {
+	u, err := url.Parse(strings.TrimSpace(hostName))
+	if err != nil {
+		return nil, err
+	}
 	if u == nil {
 		u = &url.URL{}
 	}
@@ -33,10 +36,10 @@ func NewNetgear(hostName, username, password string) *Netgear {
 
 	return &Netgear{
 		client:   &http.Client{Timeout: timeout},
-		baseUrl:  *u,
+		baseUrl:  u,
 		username: username,
 		password: password,
-	}
+	}, nil
 }
 
 func (n *Netgear) Login() error {
