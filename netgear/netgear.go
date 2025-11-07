@@ -107,19 +107,15 @@ func (n *Netgear) Logout() error {
 	return nil
 }
 
-func (n *Netgear) DeviceInfo() (DeviceInfo, error) {
-	data, err := n.doRequest(http.MethodGet, "device_info", nil)
-	if err != nil {
-		return DeviceInfo{}, err
-	}
+func (n *Netgear) DeviceInfo() (*DeviceInfo, error) {
 	var di DeviceInfo
-	if err := json.Unmarshal(data, &di); err != nil {
-		return DeviceInfo{}, err
+	if err := n.doRequest(http.MethodGet, "device_info", &di); err != nil {
+		return nil, err
 	}
-	return di, nil
+	return &di, nil
 }
 
-func (n *Netgear) PortStatistics(statType string) ([]byte, error) {
+func (n *Netgear) PortStatistics(statType string) (*PortStatistics, error) {
 	const defaultPageIndex = 1
 	const defaultPageSize = 25
 
@@ -130,37 +126,50 @@ func (n *Netgear) PortStatistics(statType string) ([]byte, error) {
 	q.Set("pageSize", strconv.Itoa(defaultPageSize))
 	u.RawQuery = q.Encode()
 
-	return n.doRequestURL(http.MethodGet, u, nil)
-}
-
-func (n *Netgear) PoeStatus() ([]byte, error) {
-	return n.doRequest(http.MethodGet, "swcfg_poe", nil)
-}
-
-func (n *Netgear) doRequest(method, path string, body io.Reader) ([]byte, error) {
-	u := n.baseUrl.JoinPath(path)
-	return n.doRequestURL(method, u, body)
-}
-
-func (n *Netgear) doRequestURL(method string, u *url.URL, body io.Reader) ([]byte, error) {
-	req, err := http.NewRequest(method, u.String(), body)
-	if err != nil {
+	var stats PortStatistics
+	if err := n.doRequestURL(http.MethodGet, u, &stats); err != nil {
 		return nil, err
 	}
+	return &stats, nil
+}
+
+func (n *Netgear) PoeStatus() (*PoeStatus, error) {
+	var poeStatus PoeStatus
+	if err := n.doRequest(http.MethodGet, "swcfg_poe", &poeStatus); err != nil {
+		return nil, err
+	}
+	return &poeStatus, nil
+}
+
+func (n *Netgear) doRequest(method, path string, result any) error {
+	return n.doRequestURL(method, n.baseUrl.JoinPath(path), result)
+}
+
+func (n *Netgear) doRequestURL(method string, u *url.URL, result any) error {
+	req, err := http.NewRequest(method, u.String(), nil)
+	if err != nil {
+		return err
+	}
+
 	req.Header.Set("session", n.sessionToken)
 
 	resp, err := n.client.Do(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+	if result == nil {
+		// ignore response body but still read it so connection can be reused
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return nil
 	}
 
-	return data, nil
+	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
+		return fmt.Errorf("failed to parse response JSON: %w", err)
+	}
+
+	return nil
 }
 
 func StringPercentToFloat(percents string) (float64, error) {
