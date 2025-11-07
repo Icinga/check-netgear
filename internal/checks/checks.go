@@ -58,7 +58,9 @@ func CheckTemperature(sensors []netgear.SensorDetail, warn float64, crit float64
 		partial.AddSubcheck(sub)
 	}
 
-	_ = partial.SetState(worst)
+	if err := partial.SetState(worst); err != nil {
+		return nil, err
+	}
 	return &partial, nil
 }
 
@@ -109,16 +111,19 @@ func CheckPorts(inRows, outRows []netgear.PortStatisticRow, portsToCheck []int, 
 		portStatus := max(inStatus, outStatus)
 		worst = max(worst, portStatus)
 
-		addPerfSubcheck := func(label string, loss float64, status int) {
+		addPerfSubcheck := func(label string, loss float64, status int) error {
 			sub := result.PartialResult{
 				Output: fmt.Sprintf("%s: %.2f%% loss", label, loss),
 			}
-			_ = sub.SetState(status)
+			if err := sub.SetState(status); err != nil {
+				return err
+			}
 			sub.Perfdata.Add(&perfdata.Perfdata{
 				Label: fmt.Sprintf("port %v %s loss", in.Port, label),
 				Value: loss, Min: 0, Max: 100,
 			})
 			portCheck.AddSubcheck(sub)
+			return nil
 		}
 
 		addPerfSubcheck("IN", inLoss, inStatus)
@@ -162,7 +167,9 @@ func CheckPoe(ports []netgear.PoePort) (*result.PartialResult, error) {
 				port.Port, state, port.CurrentPower/1000, port.PowerLimit/1000,
 			),
 		}
-		_ = poeCheck.SetState(status)
+		if err := poeCheck.SetState(status); err != nil {
+			return nil, err
+		}
 		poeCheck.Perfdata.Add(&perfdata.Perfdata{
 			Label: fmt.Sprintf("port %v power", port.Port),
 			Value: port.CurrentPower, Min: 0, Max: port.PowerLimit,
