@@ -165,14 +165,19 @@ func main() {
 
 	// ports
 	if slices.Contains(mode, "ports") {
-		var inStats, outStats netgear.PortStatistics
-		portsIn, _ := n.PortStatistics("inbound")
-		portsOut, _ := n.PortStatistics("outbound")
-		_ = json.Unmarshal(portsIn, &inStats)
-		_ = json.Unmarshal(portsOut, &outStats)
+		portsIn, err := n.PortStatistics("inbound")
+		if err != nil {
+			fmt.Printf("Error retrieving inbound port stats: %v\n", err)
+			os.Exit(int(check.Unknown))
+		}
+		portsOut, err := n.PortStatistics("outbound")
+		if err != nil {
+			fmt.Printf("Error retrieving outbound port stats: %v\n", err)
+			os.Exit(int(check.Unknown))
+		}
 
-		inRows := inStats.PortStatistics.Rows
-		outRows := outStats.PortStatistics.Rows
+		inRows := portsIn.PortStatistics.Rows
+		outRows := portsOut.PortStatistics.Rows
 
 		o := result.Overall{}
 		portsPartial, err := checks.CheckPorts(inRows, outRows, portsToCheck, *statsWarn, *statsCrit)
@@ -188,9 +193,11 @@ func main() {
 	// poe stuff
 	if slices.Contains(mode, "poe") {
 		o := result.Overall{}
-		var poeStatus netgear.PoeStatus
-		inputData, _ := n.PoeStatus()
-		_ = json.Unmarshal(inputData, &poeStatus)
+		poeStatus, err := n.PoeStatus()
+		if err != nil {
+			fmt.Printf("Error retrieving PoE status: %v\n", err)
+			os.Exit(int(check.Unknown))
+		}
 
 		poePartial, err := checks.CheckPoe(poeStatus.PoePortConfig)
 		if err != nil {
