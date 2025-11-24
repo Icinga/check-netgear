@@ -47,7 +47,7 @@ func main() {
 	hidetemp := flag.Bool("notemp", false, "Hide the Temperature info")
 	hidefans := flag.Bool("nofans", false, "Hide the Fans info")
 
-	mode := stringSliceFlag{"basic"}
+	mode := stringSliceFlag{}
 	flag.Var(&mode, "mode", "Output modes to enable {basic|ports|poe|all} (repeatable)")
 
 	baseURL := flag.String("base-url", "http://192.168.0.239", "Base URL to use")
@@ -90,7 +90,9 @@ func main() {
 	}
 	defer func() { _ = n.Logout() }()
 
-	if slices.Contains(mode, "all") {
+	if len(mode) == 0 {
+		mode = append(mode, "basic")
+	} else if slices.Contains(mode, "all") {
 		mode = append(mode, "basic", "ports", "poe")
 	}
 
