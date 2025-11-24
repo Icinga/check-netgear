@@ -104,18 +104,16 @@ func main() {
 			os.Exit(check.Unknown)
 		}
 
-		upTime := deviceInfo.DeviceInfo.Details[0].Uptime
-		cpuUsage, _ := netgear.StringPercentToFloat(deviceInfo.DeviceInfo.Cpu[0].Usage)
-		memUsage, _ := netgear.StringPercentToFloat(deviceInfo.DeviceInfo.Memory[0].Usage)
-		fan := deviceInfo.DeviceInfo.Fan[0].Details[0]
-		fanName := fan.Description
-		fanSpeed := fan.Speed
-		sensorDetails := deviceInfo.DeviceInfo.Sensor[0].Details
-
 		o := result.Overall{}
 
 		// CPU
 		if !*hidecpu {
+			cpuUsage, err := netgear.StringPercentToFloat(deviceInfo.DeviceInfo.Cpu[0].Usage)
+			if err != nil {
+				fmt.Printf("Error parsing CPU usage: %v\n", err)
+				os.Exit(check.Unknown)
+			}
+
 			cpuPartial, err := checks.CheckCPU(cpuUsage, *cpuWarn, *cpuCrit)
 			if err != nil {
 				errRes := result.NewPartialResult()
@@ -129,6 +127,12 @@ func main() {
 
 		// Memory
 		if !*hidemem {
+			memUsage, err := netgear.StringPercentToFloat(deviceInfo.DeviceInfo.Memory[0].Usage)
+			if err != nil {
+				fmt.Printf("Error parsing Memory usage: %v\n", err)
+				os.Exit(check.Unknown)
+			}
+
 			memPartial, err := checks.CheckMemory(memUsage, *memWarn, *memCrit)
 			if err != nil {
 				errRes := result.NewPartialResult()
@@ -142,6 +146,7 @@ func main() {
 
 		// Temperature
 		if !*hidetemp {
+			sensorDetails := deviceInfo.DeviceInfo.Sensor[0].Details
 			tempPartial, err := checks.CheckTemperature(sensorDetails, *tempWarn, *tempCrit)
 			if err != nil {
 				errRes := result.NewPartialResult()
@@ -155,7 +160,8 @@ func main() {
 
 		// Fans
 		if !*hidefans {
-			fanPartial, err := checks.CheckFans(fanName, fanSpeed, *fanWarn)
+			fan := deviceInfo.DeviceInfo.Fan[0].Details[0]
+			fanPartial, err := checks.CheckFans(fan.Description, fan.Speed, *fanWarn)
 			if err != nil {
 				errRes := result.NewPartialResult()
 				errRes.Output = fmt.Sprintf("Fans check error: %v", err)
@@ -166,6 +172,7 @@ func main() {
 			}
 		}
 
+		upTime := deviceInfo.DeviceInfo.Details[0].Uptime
 		o.Add(worstStatus, fmt.Sprintf("Device Info: Uptime - %v", upTime))
 		fmt.Println(o.GetOutput())
 	}
