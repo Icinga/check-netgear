@@ -47,7 +47,7 @@ func main() {
 	hidetemp := flag.Bool("notemp", false, "Hide the Temperature info")
 	hidefans := flag.Bool("nofans", false, "Hide the Fans info")
 
-	var mode stringSliceFlag = []string{"basic"}
+	mode := stringSliceFlag{"basic"}
 	flag.Var(&mode, "mode", "Output modes to enable {basic|ports|poe|all} (repeatable)")
 
 	baseURL := flag.String("base-url", "http://192.168.0.239", "Base URL to use")
@@ -66,7 +66,7 @@ func main() {
 	statsWarn := flag.Float64("stats-warning", 5, "Port stats warning threshold")
 	statsCrit := flag.Float64("stats-critical", 20, "Port stats critical threshold")
 
-	var portsToCheck intSliceFlag = []int{1, 2, 3, 4, 5, 6, 7, 8}
+	portsToCheck := intSliceFlag{1, 2, 3, 4, 5, 6, 7, 8}
 	flag.Var(&portsToCheck, "port", "Ports to check (repeatable)")
 
 	help := flag.Bool("help", false, "Show this help")
@@ -86,7 +86,7 @@ func main() {
 	}
 	if err := n.Login(); err != nil {
 		fmt.Printf("Error while trying to login: %v\n", err)
-		os.Exit(int(check.Unknown))
+		os.Exit(check.Unknown)
 	}
 	defer func() { _ = n.Logout() }()
 
@@ -101,7 +101,7 @@ func main() {
 		deviceInfo, err := n.DeviceInfo()
 		if err != nil {
 			fmt.Printf("Error retrieving device info: %v\n", err)
-			os.Exit(int(check.Unknown))
+			os.Exit(check.Unknown)
 		}
 
 		upTime := deviceInfo.DeviceInfo.Details[0].Uptime

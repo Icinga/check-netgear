@@ -36,11 +36,11 @@ type DeviceInfo struct {
 		Sensor  []Sensor            `json:"sensor"`
 		Cpu     []struct {
 			Usage string `json:"usage"`
-			Unit  string `json:"unit"`
+			Unit  int32  `json:"unit"`
 		} `json:"cpu"`
 		Memory []struct {
 			Usage string `json:"usage"`
-			Unit  string `json:"unit"`
+			Unit  int32  `json:"unit"`
 		} `json:"memory"`
 	} `json:"deviceInfo"`
 }
