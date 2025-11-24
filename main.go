@@ -74,9 +74,14 @@ func main() {
 
 	flag.Parse()
 
-	if *help || *username == "" || *password == "" {
+	if *help {
 		flag.Usage()
 		return
+	}
+
+	if *username == "" || *password == "" {
+		fmt.Println("Both username and password are required")
+		os.Exit(check.Unknown)
 	}
 
 	n, err := netgear.NewNetgear(*baseURL, *username, *password)
