@@ -126,8 +126,12 @@ func CheckPorts(inRows, outRows []netgear.PortStatisticRow, portsToCheck []int, 
 			return nil
 		}
 
-		addPerfSubcheck("IN", inLoss, inStatus)
-		addPerfSubcheck("OUT", outLoss, outStatus)
+		if err := addPerfSubcheck("IN", inLoss, inStatus); err != nil {
+			return nil, err
+		}
+		if err := addPerfSubcheck("OUT", outLoss, outStatus); err != nil {
+			return nil, err
+		}
 
 		if err := portCheck.SetState(portStatus); err != nil {
 			return nil, err
