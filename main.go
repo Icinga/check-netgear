@@ -157,7 +157,7 @@ func main() {
 			tempPartial, err := checks.CheckTemperature(sensorDetails, *tempWarn, *tempCrit)
 			if err != nil {
 				errRes := result.NewPartialResult()
-				errRes.Output = fmt.Sprintf("Temperatuer check error: %v", err)
+				errRes.Output = fmt.Sprintf("Temperature check error: %v", err)
 				o.AddSubcheck(errRes)
 			} else {
 				worstStatus = max(worstStatus, tempPartial.GetStatus())
