@@ -116,6 +116,9 @@ func (n *Netgear) PortStatistics(statType string) (*PortStatistics, error) {
 	const defaultPageIndex = 1
 	const defaultPageSize = 25
 
+	// NOTE: There should be a paginated request here!
+	// However, as of 2025-11-25, the API does not respect the parameters "indexPage" and "pageSize" and always
+	// returns the first page. Therefore, this request only works for switches with less than 25 ports.
 	u := n.baseUrl.JoinPath("port_statistics")
 	q := u.Query()
 	q.Set("type", statType)
