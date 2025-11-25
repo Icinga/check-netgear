@@ -73,6 +73,9 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 	o := result.Overall{}
 
 	if !flags.HideCpu {
+		if len(deviceInfo.DeviceInfo.Cpu) == 0 {
+			return fmt.Errorf("no CPU info for this device")
+		}
 		cpuUsage, err := netgear.StringPercentToFloat(deviceInfo.DeviceInfo.Cpu[0].Usage)
 		if err != nil {
 			return fmt.Errorf("error parsing CPU usage: %v\n", err)
@@ -90,6 +93,9 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 	}
 
 	if !flags.HideMem {
+		if len(deviceInfo.DeviceInfo.Memory) == 0 {
+			return fmt.Errorf("no Memory info for this device")
+		}
 		memUsage, err := netgear.StringPercentToFloat(deviceInfo.DeviceInfo.Memory[0].Usage)
 		if err != nil {
 			return fmt.Errorf("error parsing Memory usage: %v\n", err)
@@ -107,6 +113,9 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 	}
 
 	if !flags.HideTemp {
+		if len(deviceInfo.DeviceInfo.Sensor) == 0 {
+			return fmt.Errorf("no Temperature info for this device")
+		}
 		sensorDetails := deviceInfo.DeviceInfo.Sensor[0].Details
 		tempPartial, err := checks.CheckTemperature(sensorDetails, flags.TempWarn, flags.TempCrit)
 		if err != nil {
@@ -120,6 +129,12 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 	}
 
 	if !flags.HideFans {
+		if len(deviceInfo.DeviceInfo.Fan) == 0 {
+			return fmt.Errorf("no Fan info for this device")
+		}
+		if len(deviceInfo.DeviceInfo.Fan[0].Details) == 0 {
+			return fmt.Errorf("no Fan details for this device")
+		}
 		fan := deviceInfo.DeviceInfo.Fan[0].Details[0]
 		fanPartial, err := checks.CheckFans(fan.Description, fan.Speed, flags.FanWarn, flags.FanCrit)
 		if err != nil {
