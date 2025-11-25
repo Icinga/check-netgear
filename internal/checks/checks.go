@@ -65,11 +65,8 @@ func CheckTemperature(sensors []netgear.SensorDetail, warn float64, crit float64
 }
 
 // CheckFans creates a partialResult with the fans information
-func CheckFans(fanName string, fanSpeed float64, warn float64) (*result.PartialResult, error) {
-	status := check.OK
-	if fanSpeed > warn {
-		status = check.Warning
-	}
+func CheckFans(fanName string, fanSpeed float64, warn float64, crit float64) (*result.PartialResult, error) {
+	status := utils.StatusByThreshold(fanSpeed, warn, crit)
 
 	partial := result.PartialResult{Output: "Fans"}
 	sub := result.PartialResult{

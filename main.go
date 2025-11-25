@@ -41,11 +41,168 @@ func (i *intSliceFlag) Set(v string) error {
 	return nil
 }
 
+// Flags contains all command line flags that are relevant to check modes
+type Flags struct {
+	HideCpu  bool
+	HideMem  bool
+	HideTemp bool
+	HideFans bool
+
+	CpuWarn  float64
+	CpuCrit  float64
+	MemWarn  float64
+	MemCrit  float64
+	TempWarn float64
+	TempCrit float64
+	FanWarn  float64
+	FanCrit  float64
+	PortWarn float64
+	PortCrit float64
+
+	PortsToCheck intSliceFlag
+}
+
+// ModeBasic contains all the basic hardware information of the switch, including CPU and RAM usage, temperature and fan
+// speed
+func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) error {
+	deviceInfo, err := netgearSession.DeviceInfo()
+	if err != nil {
+		return fmt.Errorf("error retrieving device info: %v\n", err)
+	}
+
+	o := result.Overall{}
+
+	if !flags.HideCpu {
+		cpuUsage, err := netgear.StringPercentToFloat(deviceInfo.DeviceInfo.Cpu[0].Usage)
+		if err != nil {
+			return fmt.Errorf("error parsing CPU usage: %v\n", err)
+		}
+
+		cpuPartial, err := checks.CheckCPU(cpuUsage, flags.CpuWarn, flags.CpuCrit)
+		if err != nil {
+			errRes := result.NewPartialResult()
+			errRes.Output = fmt.Sprintf("CPU check error: %v", err)
+			o.AddSubcheck(errRes)
+		} else {
+			*worstStatus = max(*worstStatus, cpuPartial.GetStatus())
+			o.AddSubcheck(*cpuPartial)
+		}
+	}
+
+	if !flags.HideMem {
+		memUsage, err := netgear.StringPercentToFloat(deviceInfo.DeviceInfo.Memory[0].Usage)
+		if err != nil {
+			return fmt.Errorf("error parsing Memory usage: %v\n", err)
+		}
+
+		memPartial, err := checks.CheckMemory(memUsage, flags.MemWarn, flags.MemCrit)
+		if err != nil {
+			errRes := result.NewPartialResult()
+			errRes.Output = fmt.Sprintf("Memory check error: %v", err)
+			o.AddSubcheck(errRes)
+		} else {
+			*worstStatus = max(*worstStatus, memPartial.GetStatus())
+			o.AddSubcheck(*memPartial)
+		}
+	}
+
+	if !flags.HideTemp {
+		sensorDetails := deviceInfo.DeviceInfo.Sensor[0].Details
+		tempPartial, err := checks.CheckTemperature(sensorDetails, flags.TempWarn, flags.TempCrit)
+		if err != nil {
+			errRes := result.NewPartialResult()
+			errRes.Output = fmt.Sprintf("Temperature check error: %v", err)
+			o.AddSubcheck(errRes)
+		} else {
+			*worstStatus = max(*worstStatus, tempPartial.GetStatus())
+			o.AddSubcheck(*tempPartial)
+		}
+	}
+
+	if !flags.HideFans {
+		fan := deviceInfo.DeviceInfo.Fan[0].Details[0]
+		fanPartial, err := checks.CheckFans(fan.Description, fan.Speed, flags.FanWarn, flags.FanCrit)
+		if err != nil {
+			errRes := result.NewPartialResult()
+			errRes.Output = fmt.Sprintf("Fans check error: %v", err)
+			o.AddSubcheck(errRes)
+		} else {
+			*worstStatus = max(*worstStatus, fanPartial.GetStatus())
+			o.AddSubcheck(*fanPartial)
+		}
+	}
+
+	upTime := deviceInfo.DeviceInfo.Details[0].Uptime
+	o.Add(*worstStatus, fmt.Sprintf("Device Info: Uptime - %v", upTime))
+	fmt.Println(o.GetOutput())
+
+	return nil
+}
+
+// ModePorts monitors the network traffic on the ports and reports back the percentage of dropped packets
+func ModePorts(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) error {
+	o := result.Overall{}
+	portsIn, err := netgearSession.PortStatistics("inbound")
+	if err != nil {
+		errRes := result.NewPartialResult()
+		errRes.Output = fmt.Sprintf("Inbound port check error: %v", err)
+		o.AddSubcheck(errRes)
+	}
+	portsOut, err := netgearSession.PortStatistics("outbound")
+	if err != nil {
+		errRes := result.NewPartialResult()
+		errRes.Output = fmt.Sprintf("Outbound port check error: %v", err)
+		o.AddSubcheck(errRes)
+	}
+
+	inRows := portsIn.PortStatistics.Rows
+	outRows := portsOut.PortStatistics.Rows
+
+	portsPartial, err := checks.CheckPorts(inRows, outRows, flags.PortsToCheck, flags.PortWarn, flags.PortCrit)
+	if err != nil {
+		errRes := result.NewPartialResult()
+		errRes.Output = fmt.Sprintf("Ports check error: %v", err)
+		o.AddSubcheck(errRes)
+	} else {
+		*worstStatus = max(*worstStatus, portsPartial.GetStatus())
+		o.AddSubcheck(*portsPartial)
+		fmt.Println(o.GetOutput())
+	}
+
+	return nil
+}
+
+// ModePoE checks the ports PoE state
+func ModePoE(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) error {
+	o := result.Overall{}
+	poeStatus, err := netgearSession.PoeStatus()
+	if err != nil {
+		errRes := result.NewPartialResult()
+		errRes.Output = fmt.Sprintf("PoE check error: %v", err)
+		o.AddSubcheck(errRes)
+	}
+
+	poePartial, err := checks.CheckPoe(poeStatus.PoePortConfig)
+	if err != nil {
+		errRes := result.NewPartialResult()
+		errRes.Output = fmt.Sprintf("PoE check error: %v", err)
+		o.AddSubcheck(errRes)
+	} else {
+		*worstStatus = max(*worstStatus, poePartial.GetStatus())
+		o.AddSubcheck(*poePartial)
+		fmt.Println(o.GetOutput())
+	}
+
+	return nil
+}
+
 func main() {
-	hidecpu := flag.Bool("nocpu", false, "Hide the CPU info")
-	hidemem := flag.Bool("nomem", false, "Hide the RAM info")
-	hidetemp := flag.Bool("notemp", false, "Hide the Temperature info")
-	hidefans := flag.Bool("nofans", false, "Hide the Fans info")
+	flags := Flags{}
+
+	flag.BoolVar(&flags.HideCpu, "nocpu", false, "Hide the CPU info")
+	flag.BoolVar(&flags.HideMem, "nomem", false, "Hide the RAM info")
+	flag.BoolVar(&flags.HideTemp, "notemp", false, "Hide the Temperature info")
+	flag.BoolVar(&flags.HideFans, "nofans", false, "Hide the Fans info")
 
 	mode := stringSliceFlag{}
 	flag.Var(&mode, "mode", "Output modes to enable {basic|ports|poe|all} (repeatable)")
@@ -56,18 +213,19 @@ func main() {
 	password := flag.String("password", "", "Password for authentication")
 
 	// Thresholds
-	cpuWarn := flag.Float64("cpu-warning", 50, "CPU usage warning threshold")
-	cpuCrit := flag.Float64("cpu-critical", 90, "CPU usage critical threshold")
-	memWarn := flag.Float64("mem-warning", 50, "RAM usage warning threshold")
-	memCrit := flag.Float64("mem-critical", 90, "RAM usage critical threshold")
-	fanWarn := flag.Float64("fan-warning", 3000, "Fan speed warning threshold")
-	tempWarn := flag.Float64("temp-warning", 50, "Temperature warning threshold")
-	tempCrit := flag.Float64("temp-critical", 70, "Temperature critical threshold")
-	statsWarn := flag.Float64("stats-warning", 5, "Port stats warning threshold")
-	statsCrit := flag.Float64("stats-critical", 20, "Port stats critical threshold")
+	flag.Float64Var(&flags.CpuWarn, "cpu-warning", 50, "CPU usage warning threshold")
+	flag.Float64Var(&flags.CpuCrit, "cpu-critical", 90, "CPU usage critical threshold")
+	flag.Float64Var(&flags.MemWarn, "mem-warning", 50, "RAM usage warning threshold")
+	flag.Float64Var(&flags.MemCrit, "mem-critical", 90, "RAM usage critical threshold")
+	flag.Float64Var(&flags.FanWarn, "fan-warning", 3000, "Fan speed warning threshold")
+	flag.Float64Var(&flags.FanCrit, "fan-critical", 5000, "Fan speed critical threshold")
+	flag.Float64Var(&flags.TempWarn, "temp-warning", 50, "Temperature warning threshold")
+	flag.Float64Var(&flags.TempCrit, "temp-critical", 70, "Temperature critical threshold")
+	flag.Float64Var(&flags.PortWarn, "stats-warning", 5, "Port stats warning threshold")
+	flag.Float64Var(&flags.PortCrit, "stats-critical", 20, "Port stats critical threshold")
 
-	portsToCheck := intSliceFlag{1, 2, 3, 4, 5, 6, 7, 8}
-	flag.Var(&portsToCheck, "port", "Ports to check (repeatable)")
+	flags.PortsToCheck = intSliceFlag{1, 2, 3, 4, 5, 6, 7, 8}
+	flag.Var(&flags.PortsToCheck, "port", "Ports to check (repeatable)")
 
 	help := flag.Bool("help", false, "Show this help")
 	flag.BoolVar(help, "h", false, "Show this help (shorthand)")
@@ -84,16 +242,16 @@ func main() {
 		os.Exit(check.Unknown)
 	}
 
-	n, err := netgear.NewNetgear(*baseURL, *username, *password)
+	netgearSession, err := netgear.NewNetgear(*baseURL, *username, *password)
 	if err != nil {
 		fmt.Printf("URL error: %v", err)
 		os.Exit(check.Unknown)
 	}
-	if err := n.Login(); err != nil {
+	if err := netgearSession.Login(); err != nil {
 		fmt.Printf("Error while trying to login: %v\n", err)
 		os.Exit(check.Unknown)
 	}
-	defer func() { _ = n.Logout() }()
+	defer func() { _ = netgearSession.Logout() }()
 
 	if len(mode) == 0 {
 		mode = append(mode, "basic")
@@ -105,135 +263,28 @@ func main() {
 
 	// Basic check
 	if slices.Contains(mode, "basic") {
-		deviceInfo, err := n.DeviceInfo()
+		err = ModeBasic(netgearSession, &worstStatus, &flags)
 		if err != nil {
-			fmt.Printf("Error retrieving device info: %v\n", err)
+			fmt.Print(err)
 			os.Exit(check.Unknown)
 		}
-
-		o := result.Overall{}
-
-		// CPU
-		if !*hidecpu {
-			cpuUsage, err := netgear.StringPercentToFloat(deviceInfo.DeviceInfo.Cpu[0].Usage)
-			if err != nil {
-				fmt.Printf("Error parsing CPU usage: %v\n", err)
-				os.Exit(check.Unknown)
-			}
-
-			cpuPartial, err := checks.CheckCPU(cpuUsage, *cpuWarn, *cpuCrit)
-			if err != nil {
-				errRes := result.NewPartialResult()
-				errRes.Output = fmt.Sprintf("CPU check error: %v", err)
-				o.AddSubcheck(errRes)
-			} else {
-				worstStatus = max(worstStatus, cpuPartial.GetStatus())
-				o.AddSubcheck(*cpuPartial)
-			}
-		}
-
-		// Memory
-		if !*hidemem {
-			memUsage, err := netgear.StringPercentToFloat(deviceInfo.DeviceInfo.Memory[0].Usage)
-			if err != nil {
-				fmt.Printf("Error parsing Memory usage: %v\n", err)
-				os.Exit(check.Unknown)
-			}
-
-			memPartial, err := checks.CheckMemory(memUsage, *memWarn, *memCrit)
-			if err != nil {
-				errRes := result.NewPartialResult()
-				errRes.Output = fmt.Sprintf("Memory check error: %v", err)
-				o.AddSubcheck(errRes)
-			} else {
-				worstStatus = max(worstStatus, memPartial.GetStatus())
-				o.AddSubcheck(*memPartial)
-			}
-		}
-
-		// Temperature
-		if !*hidetemp {
-			sensorDetails := deviceInfo.DeviceInfo.Sensor[0].Details
-			tempPartial, err := checks.CheckTemperature(sensorDetails, *tempWarn, *tempCrit)
-			if err != nil {
-				errRes := result.NewPartialResult()
-				errRes.Output = fmt.Sprintf("Temperature check error: %v", err)
-				o.AddSubcheck(errRes)
-			} else {
-				worstStatus = max(worstStatus, tempPartial.GetStatus())
-				o.AddSubcheck(*tempPartial)
-			}
-		}
-
-		// Fans
-		if !*hidefans {
-			fan := deviceInfo.DeviceInfo.Fan[0].Details[0]
-			fanPartial, err := checks.CheckFans(fan.Description, fan.Speed, *fanWarn)
-			if err != nil {
-				errRes := result.NewPartialResult()
-				errRes.Output = fmt.Sprintf("Fans check error: %v", err)
-				o.AddSubcheck(errRes)
-			} else {
-				worstStatus = max(worstStatus, fanPartial.GetStatus())
-				o.AddSubcheck(*fanPartial)
-			}
-		}
-
-		upTime := deviceInfo.DeviceInfo.Details[0].Uptime
-		o.Add(worstStatus, fmt.Sprintf("Device Info: Uptime - %v", upTime))
-		fmt.Println(o.GetOutput())
 	}
 
 	// ports
 	if slices.Contains(mode, "ports") {
-		o := result.Overall{}
-		portsIn, err := n.PortStatistics("inbound")
+		err = ModePorts(netgearSession, &worstStatus, &flags)
 		if err != nil {
-			errRes := result.NewPartialResult()
-			errRes.Output = fmt.Sprintf("Inbound port check error: %v", err)
-			o.AddSubcheck(errRes)
-		}
-		portsOut, err := n.PortStatistics("outbound")
-		if err != nil {
-			errRes := result.NewPartialResult()
-			errRes.Output = fmt.Sprintf("Outbound port check error: %v", err)
-			o.AddSubcheck(errRes)
-		}
-
-		inRows := portsIn.PortStatistics.Rows
-		outRows := portsOut.PortStatistics.Rows
-
-		portsPartial, err := checks.CheckPorts(inRows, outRows, portsToCheck, *statsWarn, *statsCrit)
-		if err != nil {
-			errRes := result.NewPartialResult()
-			errRes.Output = fmt.Sprintf("Ports check error: %v", err)
-			o.AddSubcheck(errRes)
-		} else {
-			worstStatus = max(worstStatus, portsPartial.GetStatus())
-			o.AddSubcheck(*portsPartial)
-			fmt.Println(o.GetOutput())
+			fmt.Print(err)
+			os.Exit(check.Unknown)
 		}
 	}
 
 	// poe stuff
 	if slices.Contains(mode, "poe") {
-		o := result.Overall{}
-		poeStatus, err := n.PoeStatus()
+		err = ModePoE(netgearSession, &worstStatus, &flags)
 		if err != nil {
-			errRes := result.NewPartialResult()
-			errRes.Output = fmt.Sprintf("PoE check error: %v", err)
-			o.AddSubcheck(errRes)
-		}
-
-		poePartial, err := checks.CheckPoe(poeStatus.PoePortConfig)
-		if err != nil {
-			errRes := result.NewPartialResult()
-			errRes.Output = fmt.Sprintf("PoE check error: %v", err)
-			o.AddSubcheck(errRes)
-		} else {
-			worstStatus = max(worstStatus, poePartial.GetStatus())
-			o.AddSubcheck(*poePartial)
-			fmt.Println(o.GetOutput())
+			fmt.Print(err)
+			os.Exit(check.Unknown)
 		}
 	}
 
