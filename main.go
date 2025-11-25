@@ -353,6 +353,11 @@ func main() {
 		o.AddSubcheck(*subcheck)
 	}
 
+	if len(o.PartialResults) == 0 {
+		fmt.Print("No valid modes selected")
+		os.Exit(check.Unknown)
+	}
+
 	fmt.Print(o.GetOutput())
 
 	os.Exit(worstStatus)
