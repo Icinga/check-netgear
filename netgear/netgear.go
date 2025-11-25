@@ -23,8 +23,8 @@ type Netgear struct {
 	password string
 }
 
-func NewNetgear(hostName, username, password string) (*Netgear, error) {
-	u, err := url.Parse(strings.TrimSpace(hostName))
+func NewNetgear(baseUrl, username, password string) (*Netgear, error) {
+	u, err := url.Parse(strings.TrimSpace(baseUrl))
 	if err != nil {
 		return nil, err
 	}
