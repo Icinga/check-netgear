@@ -64,27 +64,38 @@ type Flags struct {
 
 // ModeBasic contains all the basic hardware information of the switch, including CPU and RAM usage, temperature and fan
 // speed
-func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) error {
+func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) (*result.PartialResult, error) {
 	deviceInfo, err := netgearSession.DeviceInfo()
 	if err != nil {
-		return fmt.Errorf("error retrieving device info: %v\n", err)
+		return nil, fmt.Errorf("error retrieving device info: %v\n", err)
 	}
 
-	o := result.Overall{}
+	upTime := deviceInfo.DeviceInfo.Details[0].Uptime
+	if len(deviceInfo.DeviceInfo.Details) == 0 {
+		return nil, fmt.Errorf("error retrieving device info")
+	}
+
+	o := result.PartialResult{
+		Output: fmt.Sprintf("Device Info: Uptime - %v", upTime),
+	}
 
 	if !flags.HideCpu {
 		if len(deviceInfo.DeviceInfo.Cpu) == 0 {
-			return fmt.Errorf("no CPU info for this device")
+			return nil, fmt.Errorf("no CPU info for this device")
 		}
 		cpuUsage, err := netgear.StringPercentToFloat(deviceInfo.DeviceInfo.Cpu[0].Usage)
 		if err != nil {
-			return fmt.Errorf("error parsing CPU usage: %v\n", err)
+			return nil, fmt.Errorf("error parsing CPU usage: %v\n", err)
 		}
 
 		cpuPartial, err := checks.CheckCPU(cpuUsage, flags.CpuWarn, flags.CpuCrit)
 		if err != nil {
 			errRes := result.NewPartialResult()
 			errRes.Output = fmt.Sprintf("CPU check error: %v", err)
+			err := errRes.SetState(check.Unknown)
+			if err != nil {
+				return nil, err
+			}
 			o.AddSubcheck(errRes)
 		} else {
 			*worstStatus = max(*worstStatus, cpuPartial.GetStatus())
@@ -94,17 +105,21 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 
 	if !flags.HideMem {
 		if len(deviceInfo.DeviceInfo.Memory) == 0 {
-			return fmt.Errorf("no Memory info for this device")
+			return nil, fmt.Errorf("no Memory info for this device")
 		}
 		memUsage, err := netgear.StringPercentToFloat(deviceInfo.DeviceInfo.Memory[0].Usage)
 		if err != nil {
-			return fmt.Errorf("error parsing Memory usage: %v\n", err)
+			return nil, fmt.Errorf("error parsing Memory usage: %v\n", err)
 		}
 
 		memPartial, err := checks.CheckMemory(memUsage, flags.MemWarn, flags.MemCrit)
 		if err != nil {
 			errRes := result.NewPartialResult()
 			errRes.Output = fmt.Sprintf("Memory check error: %v", err)
+			err := errRes.SetState(check.Unknown)
+			if err != nil {
+				return nil, err
+			}
 			o.AddSubcheck(errRes)
 		} else {
 			*worstStatus = max(*worstStatus, memPartial.GetStatus())
@@ -114,13 +129,17 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 
 	if !flags.HideTemp {
 		if len(deviceInfo.DeviceInfo.Sensor) == 0 {
-			return fmt.Errorf("no Temperature info for this device")
+			return nil, fmt.Errorf("no Temperature info for this device")
 		}
 		sensorDetails := deviceInfo.DeviceInfo.Sensor[0].Details
 		tempPartial, err := checks.CheckTemperature(sensorDetails, flags.TempWarn, flags.TempCrit)
 		if err != nil {
 			errRes := result.NewPartialResult()
 			errRes.Output = fmt.Sprintf("Temperature check error: %v", err)
+			err := errRes.SetState(check.Unknown)
+			if err != nil {
+				return nil, err
+			}
 			o.AddSubcheck(errRes)
 		} else {
 			*worstStatus = max(*worstStatus, tempPartial.GetStatus())
@@ -130,16 +149,20 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 
 	if !flags.HideFans {
 		if len(deviceInfo.DeviceInfo.Fan) == 0 {
-			return fmt.Errorf("no Fan info for this device")
+			return nil, fmt.Errorf("no Fan info for this device")
 		}
 		if len(deviceInfo.DeviceInfo.Fan[0].Details) == 0 {
-			return fmt.Errorf("no Fan details for this device")
+			return nil, fmt.Errorf("no Fan details for this device")
 		}
 		fan := deviceInfo.DeviceInfo.Fan[0].Details[0]
 		fanPartial, err := checks.CheckFans(fan.Description, fan.Speed, flags.FanWarn, flags.FanCrit)
 		if err != nil {
 			errRes := result.NewPartialResult()
 			errRes.Output = fmt.Sprintf("Fans check error: %v", err)
+			err := errRes.SetState(check.Unknown)
+			if err != nil {
+				return nil, err
+			}
 			o.AddSubcheck(errRes)
 		} else {
 			*worstStatus = max(*worstStatus, fanPartial.GetStatus())
@@ -147,27 +170,33 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 		}
 	}
 
-	upTime := deviceInfo.DeviceInfo.Details[0].Uptime
-	o.Add(*worstStatus, fmt.Sprintf("Device Info: Uptime - %v", upTime))
-	fmt.Println(o.GetOutput())
-
-	return nil
+	return &o, nil
 }
 
 // ModePorts monitors the network traffic on the ports and reports back the percentage of dropped packets
-func ModePorts(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) error {
-	o := result.Overall{}
+func ModePorts(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) (*result.PartialResult, error) {
+	o := result.PartialResult{}
 	portsIn, err := netgearSession.PortStatistics("inbound")
 	if err != nil {
 		errRes := result.NewPartialResult()
 		errRes.Output = fmt.Sprintf("Inbound port check error: %v", err)
+		err := errRes.SetState(check.Unknown)
+		if err != nil {
+			return nil, err
+		}
 		o.AddSubcheck(errRes)
+		return &o, nil
 	}
 	portsOut, err := netgearSession.PortStatistics("outbound")
 	if err != nil {
 		errRes := result.NewPartialResult()
 		errRes.Output = fmt.Sprintf("Outbound port check error: %v", err)
+		err := errRes.SetState(check.Unknown)
+		if err != nil {
+			return nil, err
+		}
 		o.AddSubcheck(errRes)
+		return &o, nil
 	}
 
 	inRows := portsIn.PortStatistics.Rows
@@ -177,38 +206,51 @@ func ModePorts(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 	if err != nil {
 		errRes := result.NewPartialResult()
 		errRes.Output = fmt.Sprintf("Ports check error: %v", err)
+		err := errRes.SetState(check.Unknown)
+		if err != nil {
+			return nil, err
+		}
 		o.AddSubcheck(errRes)
+		return &o, nil
 	} else {
 		*worstStatus = max(*worstStatus, portsPartial.GetStatus())
-		o.AddSubcheck(*portsPartial)
-		fmt.Println(o.GetOutput())
+		o = *portsPartial
 	}
 
-	return nil
+	return &o, nil
 }
 
 // ModePoE checks the ports PoE state
-func ModePoE(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) error {
-	o := result.Overall{}
+func ModePoE(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) (*result.PartialResult, error) {
+	o := result.PartialResult{}
 	poeStatus, err := netgearSession.PoeStatus()
 	if err != nil {
 		errRes := result.NewPartialResult()
 		errRes.Output = fmt.Sprintf("PoE check error: %v", err)
+		err := errRes.SetState(check.Unknown)
+		if err != nil {
+			return nil, err
+		}
 		o.AddSubcheck(errRes)
+		return &o, nil
 	}
 
 	poePartial, err := checks.CheckPoe(poeStatus.PoePortConfig)
 	if err != nil {
 		errRes := result.NewPartialResult()
 		errRes.Output = fmt.Sprintf("PoE check error: %v", err)
+		err := errRes.SetState(check.Unknown)
+		if err != nil {
+			return nil, err
+		}
 		o.AddSubcheck(errRes)
+		return &o, nil
 	} else {
 		*worstStatus = max(*worstStatus, poePartial.GetStatus())
-		o.AddSubcheck(*poePartial)
-		fmt.Println(o.GetOutput())
+		o = *poePartial
 	}
 
-	return nil
+	return &o, nil
 }
 
 func main() {
@@ -275,33 +317,39 @@ func main() {
 	}
 
 	worstStatus := check.OK
+	o := result.Overall{}
 
 	// Basic check
 	if slices.Contains(mode, "basic") {
-		err = ModeBasic(netgearSession, &worstStatus, &flags)
+		subcheck, err := ModeBasic(netgearSession, &worstStatus, &flags)
 		if err != nil {
 			fmt.Print(err)
 			os.Exit(check.Unknown)
 		}
+		o.AddSubcheck(*subcheck)
 	}
 
 	// ports
 	if slices.Contains(mode, "ports") {
-		err = ModePorts(netgearSession, &worstStatus, &flags)
+		subcheck, err := ModePorts(netgearSession, &worstStatus, &flags)
 		if err != nil {
 			fmt.Print(err)
 			os.Exit(check.Unknown)
 		}
+		o.AddSubcheck(*subcheck)
 	}
 
 	// poe stuff
 	if slices.Contains(mode, "poe") {
-		err = ModePoE(netgearSession, &worstStatus, &flags)
+		subcheck, err := ModePoE(netgearSession, &worstStatus, &flags)
 		if err != nil {
 			fmt.Print(err)
 			os.Exit(check.Unknown)
 		}
+		o.AddSubcheck(*subcheck)
 	}
+
+	fmt.Print(o.GetOutput())
 
 	os.Exit(worstStatus)
 }
