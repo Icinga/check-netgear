@@ -63,7 +63,10 @@ func (n *Netgear) Login() error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
 
 	var result map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -99,8 +102,8 @@ func (n *Netgear) Logout() error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
 	return nil
 }
 
@@ -134,17 +137,27 @@ func (n *Netgear) PortStatistics(statType string) (*PortStatistics, error) {
 }
 
 func (n *Netgear) PoeStatus() (*PoeStatus, error) {
-	var poeStatus PoeStatus
-	if err := n.doRequest(http.MethodGet, "swcfg_poe", &poeStatus); err != nil {
+	poeStatus := new(PoeStatus)
+	if err := n.doRequest(http.MethodGet, "swcfg_poe", poeStatus); err != nil {
 		return nil, err
 	}
-	return &poeStatus, nil
+	return poeStatus, nil
 }
 
+// doRequestURL Performs an HTTP-Request to a given path on the previously defined host and stores the resulting json
+// response in the object provided by the result parameter.
+//
+// Note: setting the result parameter to nil causes the parsing of the response to be skipped, the request is still
+// performed.
 func (n *Netgear) doRequest(method, path string, result any) error {
 	return n.doRequestURL(method, n.baseUrl.JoinPath(path), result)
 }
 
+// doRequestURL Performs an HTTP-Request to a given URL and stores the resulting json response in the
+// object provided by the result parameter.
+//
+// Note: setting the result parameter to nil causes the parsing of the response to be skipped, the request is still
+// performed.
 func (n *Netgear) doRequestURL(method string, u *url.URL, result any) error {
 	req, err := http.NewRequest(method, u.String(), nil)
 	if err != nil {
@@ -157,11 +170,12 @@ func (n *Netgear) doRequestURL(method string, u *url.URL, result any) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
 
 	if result == nil {
-		// ignore response body but still read it so connection can be reused
-		_, _ = io.Copy(io.Discard, resp.Body)
 		return nil
 	}
 

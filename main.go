@@ -3,12 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/icinga/check-netgear/internal/checks"
-	"github.com/icinga/check-netgear/netgear"
 	"os"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/icinga/check-netgear/internal/checks"
+	"github.com/icinga/check-netgear/netgear"
 
 	"github.com/NETWAYS/go-check"
 	"github.com/NETWAYS/go-check/result"
@@ -66,16 +67,16 @@ type Flags struct {
 
 // ModeBasic contains all the basic hardware information of the switch, including CPU and RAM usage, temperature and fan
 // speed
-func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) (*result.PartialResult, error) {
+func ModeBasic(netgearSession *netgear.Netgear, flags *Flags) (*result.PartialResult, error) {
 	deviceInfo, err := netgearSession.DeviceInfo()
 	if err != nil {
-		return nil, fmt.Errorf("error retrieving device info: %v\n", err)
+		return nil, fmt.Errorf("error retrieving device info: %w", err)
 	}
 
-	upTime := deviceInfo.DeviceInfo.Details[0].Uptime
 	if len(deviceInfo.DeviceInfo.Details) == 0 {
 		return nil, fmt.Errorf("error retrieving device info")
 	}
+	upTime := deviceInfo.DeviceInfo.Details[0].Uptime
 
 	o := result.PartialResult{
 		Output: fmt.Sprintf("Device Info: Uptime - %v", upTime),
@@ -87,7 +88,7 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 		}
 		cpuUsage, err := netgear.StringPercentToFloat(deviceInfo.DeviceInfo.Cpu[0].Usage)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing CPU usage: %v\n", err)
+			return nil, fmt.Errorf("error parsing CPU usage: %w", err)
 		}
 
 		cpuPartial, err := checks.CheckCPU(cpuUsage, flags.NoPerfdata, flags.CpuWarn, flags.CpuCrit)
@@ -100,7 +101,6 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 			}
 			o.AddSubcheck(errRes)
 		} else {
-			*worstStatus = max(*worstStatus, cpuPartial.GetStatus())
 			o.AddSubcheck(*cpuPartial)
 		}
 	}
@@ -111,7 +111,7 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 		}
 		memUsage, err := netgear.StringPercentToFloat(deviceInfo.DeviceInfo.Memory[0].Usage)
 		if err != nil {
-			return nil, fmt.Errorf("error parsing Memory usage: %v\n", err)
+			return nil, fmt.Errorf("error parsing Memory usage: %w", err)
 		}
 
 		memPartial, err := checks.CheckMemory(memUsage, flags.NoPerfdata, flags.MemWarn, flags.MemCrit)
@@ -124,7 +124,6 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 			}
 			o.AddSubcheck(errRes)
 		} else {
-			*worstStatus = max(*worstStatus, memPartial.GetStatus())
 			o.AddSubcheck(*memPartial)
 		}
 	}
@@ -144,7 +143,6 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 			}
 			o.AddSubcheck(errRes)
 		} else {
-			*worstStatus = max(*worstStatus, tempPartial.GetStatus())
 			o.AddSubcheck(*tempPartial)
 		}
 	}
@@ -167,7 +165,6 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 			}
 			o.AddSubcheck(errRes)
 		} else {
-			*worstStatus = max(*worstStatus, fanPartial.GetStatus())
 			o.AddSubcheck(*fanPartial)
 		}
 	}
@@ -176,7 +173,7 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 }
 
 // ModePorts monitors the network traffic on the ports and reports back the percentage of dropped packets
-func ModePorts(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) (*result.PartialResult, error) {
+func ModePorts(netgearSession *netgear.Netgear, flags *Flags) (*result.PartialResult, error) {
 	o := result.PartialResult{}
 	portsIn, err := netgearSession.PortStatistics("inbound")
 	if err != nil {
@@ -215,7 +212,6 @@ func ModePorts(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 		o.AddSubcheck(errRes)
 		return &o, nil
 	} else {
-		*worstStatus = max(*worstStatus, portsPartial.GetStatus())
 		o = *portsPartial
 	}
 
@@ -223,7 +219,7 @@ func ModePorts(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 }
 
 // ModePoE checks the ports PoE state
-func ModePoE(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) (*result.PartialResult, error) {
+func ModePoE(netgearSession *netgear.Netgear, flags *Flags) (*result.PartialResult, error) {
 	o := result.PartialResult{}
 	poeStatus, err := netgearSession.PoeStatus()
 	if err != nil {
@@ -248,7 +244,6 @@ func ModePoE(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) (*
 		o.AddSubcheck(errRes)
 		return &o, nil
 	} else {
-		*worstStatus = max(*worstStatus, poePartial.GetStatus())
 		o = *poePartial
 	}
 
@@ -266,7 +261,7 @@ func main() {
 	flag.BoolVar(&flags.HideFans, "nofans", false, "Hide the Fans info")
 
 	mode := stringSliceFlag{}
-	flag.Var(&mode, "mode", "Output modes to enable {basic|ports|poe|all} (repeatable)")
+	flag.Var(&mode, "mode", "Output modes to enable {basic|ports|poe|all} (repeatable) (default: basic)")
 
 	baseURL := flag.String("base-url", "http://192.168.0.239", "Base URL to use")
 
@@ -325,32 +320,35 @@ func main() {
 
 	// Basic check
 	if slices.Contains(mode, "basic") {
-		subcheck, err := ModeBasic(netgearSession, &worstStatus, &flags)
+		subcheck, err := ModeBasic(netgearSession, &flags)
 		if err != nil {
 			fmt.Print(err)
 			os.Exit(check.Unknown)
 		}
 		o.AddSubcheck(*subcheck)
+		worstStatus = result.WorstState(worstStatus, subcheck.GetStatus())
 	}
 
 	// ports
 	if slices.Contains(mode, "ports") {
-		subcheck, err := ModePorts(netgearSession, &worstStatus, &flags)
+		subcheck, err := ModePorts(netgearSession, &flags)
 		if err != nil {
 			fmt.Print(err)
 			os.Exit(check.Unknown)
 		}
 		o.AddSubcheck(*subcheck)
+		worstStatus = result.WorstState(worstStatus, subcheck.GetStatus())
 	}
 
 	// poe stuff
 	if slices.Contains(mode, "poe") {
-		subcheck, err := ModePoE(netgearSession, &worstStatus, &flags)
+		subcheck, err := ModePoE(netgearSession, &flags)
 		if err != nil {
 			fmt.Print(err)
 			os.Exit(check.Unknown)
 		}
 		o.AddSubcheck(*subcheck)
+		worstStatus = result.WorstState(worstStatus, subcheck.GetStatus())
 	}
 
 	if len(o.PartialResults) == 0 {
