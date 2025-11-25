@@ -12,7 +12,7 @@ import (
 )
 
 // CheckCPU creates a partialResult with the CPU information
-func CheckCPU(cpuUsage float64, warn float64, crit float64) (*result.PartialResult, error) {
+func CheckCPU(cpuUsage float64, noPerfdata bool, warn float64, crit float64) (*result.PartialResult, error) {
 	status := utils.StatusByThreshold(cpuUsage, warn, crit)
 	partial := result.PartialResult{
 		Output: fmt.Sprintf("CPU Usage: %.2f%%", cpuUsage),
@@ -20,12 +20,14 @@ func CheckCPU(cpuUsage float64, warn float64, crit float64) (*result.PartialResu
 	if err := partial.SetState(status); err != nil {
 		return nil, err
 	}
-	partial.Perfdata.Add(&perfdata.Perfdata{Label: "CPU", Value: cpuUsage, Min: 0, Max: 100})
+	if !noPerfdata {
+		partial.Perfdata.Add(&perfdata.Perfdata{Label: "CPU", Value: cpuUsage, Min: 0, Max: 100})
+	}
 	return &partial, nil
 }
 
 // CheckMemory creates a partialResult with the memory information
-func CheckMemory(memUsage float64, warn float64, crit float64) (*result.PartialResult, error) {
+func CheckMemory(memUsage float64, noPerfdata bool, warn float64, crit float64) (*result.PartialResult, error) {
 	status := utils.StatusByThreshold(memUsage, warn, crit)
 	partial := result.PartialResult{
 		Output: fmt.Sprintf("RAM Usage: %.2f%%", memUsage),
@@ -33,12 +35,14 @@ func CheckMemory(memUsage float64, warn float64, crit float64) (*result.PartialR
 	if err := partial.SetState(status); err != nil {
 		return nil, err
 	}
-	partial.Perfdata.Add(&perfdata.Perfdata{Label: "RAM", Value: memUsage, Min: 0, Max: 100})
+	if !noPerfdata {
+		partial.Perfdata.Add(&perfdata.Perfdata{Label: "RAM", Value: memUsage, Min: 0, Max: 100})
+	}
 	return &partial, nil
 }
 
 // CheckTemperature creates a partialResult with the temperature information
-func CheckTemperature(sensors []netgear.SensorDetail, warn float64, crit float64) (*result.PartialResult, error) {
+func CheckTemperature(sensors []netgear.SensorDetail, noPerfdata bool, warn float64, crit float64) (*result.PartialResult, error) {
 	partial := result.PartialResult{Output: "Temperature"}
 	worst := check.OK
 
@@ -54,7 +58,9 @@ func CheckTemperature(sensors []netgear.SensorDetail, warn float64, crit float64
 		if err := sub.SetState(status); err != nil {
 			return nil, err
 		}
-		sub.Perfdata.Add(&perfdata.Perfdata{Label: s.Description, Value: s.Temperature, Min: 0})
+		if !noPerfdata {
+			sub.Perfdata.Add(&perfdata.Perfdata{Label: s.Description, Value: s.Temperature, Min: 0})
+		}
 		partial.AddSubcheck(sub)
 	}
 
@@ -65,7 +71,7 @@ func CheckTemperature(sensors []netgear.SensorDetail, warn float64, crit float64
 }
 
 // CheckFans creates a partialResult with the fans information
-func CheckFans(fanName string, fanSpeed float64, warn float64, crit float64) (*result.PartialResult, error) {
+func CheckFans(noPerfdata bool, fanName string, fanSpeed float64, warn float64, crit float64) (*result.PartialResult, error) {
 	status := utils.StatusByThreshold(fanSpeed, warn, crit)
 
 	partial := result.PartialResult{Output: "Fans"}
@@ -75,7 +81,9 @@ func CheckFans(fanName string, fanSpeed float64, warn float64, crit float64) (*r
 	if err := sub.SetState(status); err != nil {
 		return nil, err
 	}
-	sub.Perfdata.Add(&perfdata.Perfdata{Label: "Fan Speed", Value: fanSpeed, Min: 0})
+	if !noPerfdata {
+		sub.Perfdata.Add(&perfdata.Perfdata{Label: "Fan Speed", Value: fanSpeed, Min: 0})
+	}
 	partial.AddSubcheck(sub)
 	if err := partial.SetState(status); err != nil {
 		return nil, err
@@ -85,7 +93,7 @@ func CheckFans(fanName string, fanSpeed float64, warn float64, crit float64) (*r
 }
 
 // CheckPorts creates a partialResult with the port information
-func CheckPorts(inRows, outRows []netgear.PortStatisticRow, portsToCheck []int, warn float64, crit float64) (*result.PartialResult, error) {
+func CheckPorts(inRows, outRows []netgear.PortStatisticRow, portsToCheck []int, noPerfdata bool, warn float64, crit float64) (*result.PartialResult, error) {
 	overall := result.PartialResult{Output: "Ports Statistics"}
 	worst := check.OK
 
@@ -115,10 +123,12 @@ func CheckPorts(inRows, outRows []netgear.PortStatisticRow, portsToCheck []int, 
 			if err := sub.SetState(status); err != nil {
 				return err
 			}
-			sub.Perfdata.Add(&perfdata.Perfdata{
-				Label: fmt.Sprintf("port %v %s loss", in.Port, label),
-				Value: loss, Min: 0, Max: 100,
-			})
+			if !noPerfdata {
+				sub.Perfdata.Add(&perfdata.Perfdata{
+					Label: fmt.Sprintf("port %v %s loss", in.Port, label),
+					Value: loss, Min: 0, Max: 100,
+				})
+			}
 			portCheck.AddSubcheck(sub)
 			return nil
 		}
@@ -143,7 +153,7 @@ func CheckPorts(inRows, outRows []netgear.PortStatisticRow, portsToCheck []int, 
 }
 
 // CheckPoe creates a partialResult with information about every port's POE status
-func CheckPoe(ports []netgear.PoePort) (*result.PartialResult, error) {
+func CheckPoe(ports []netgear.PoePort, noPerfdata bool) (*result.PartialResult, error) {
 	partial := result.PartialResult{Output: "Power over Ethernet Statistics"}
 	worst := check.OK
 
@@ -171,10 +181,12 @@ func CheckPoe(ports []netgear.PoePort) (*result.PartialResult, error) {
 		if err := poeCheck.SetState(status); err != nil {
 			return nil, err
 		}
-		poeCheck.Perfdata.Add(&perfdata.Perfdata{
-			Label: fmt.Sprintf("port %v power", port.Port),
-			Value: port.CurrentPower, Min: 0, Max: port.PowerLimit,
-		})
+		if !noPerfdata {
+			poeCheck.Perfdata.Add(&perfdata.Perfdata{
+				Label: fmt.Sprintf("port %v power", port.Port),
+				Value: port.CurrentPower, Min: 0, Max: port.PowerLimit,
+			})
+		}
 		partial.AddSubcheck(poeCheck)
 	}
 

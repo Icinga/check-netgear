@@ -43,6 +43,8 @@ func (i *intSliceFlag) Set(v string) error {
 
 // Flags contains all command line flags that are relevant to check modes
 type Flags struct {
+	NoPerfdata bool
+
 	HideCpu  bool
 	HideMem  bool
 	HideTemp bool
@@ -88,7 +90,7 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 			return nil, fmt.Errorf("error parsing CPU usage: %v\n", err)
 		}
 
-		cpuPartial, err := checks.CheckCPU(cpuUsage, flags.CpuWarn, flags.CpuCrit)
+		cpuPartial, err := checks.CheckCPU(cpuUsage, flags.NoPerfdata, flags.CpuWarn, flags.CpuCrit)
 		if err != nil {
 			errRes := result.NewPartialResult()
 			errRes.Output = fmt.Sprintf("CPU check error: %v", err)
@@ -112,7 +114,7 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 			return nil, fmt.Errorf("error parsing Memory usage: %v\n", err)
 		}
 
-		memPartial, err := checks.CheckMemory(memUsage, flags.MemWarn, flags.MemCrit)
+		memPartial, err := checks.CheckMemory(memUsage, flags.NoPerfdata, flags.MemWarn, flags.MemCrit)
 		if err != nil {
 			errRes := result.NewPartialResult()
 			errRes.Output = fmt.Sprintf("Memory check error: %v", err)
@@ -132,7 +134,7 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 			return nil, fmt.Errorf("no Temperature info for this device")
 		}
 		sensorDetails := deviceInfo.DeviceInfo.Sensor[0].Details
-		tempPartial, err := checks.CheckTemperature(sensorDetails, flags.TempWarn, flags.TempCrit)
+		tempPartial, err := checks.CheckTemperature(sensorDetails, flags.NoPerfdata, flags.TempWarn, flags.TempCrit)
 		if err != nil {
 			errRes := result.NewPartialResult()
 			errRes.Output = fmt.Sprintf("Temperature check error: %v", err)
@@ -155,7 +157,7 @@ func ModeBasic(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 			return nil, fmt.Errorf("no Fan details for this device")
 		}
 		fan := deviceInfo.DeviceInfo.Fan[0].Details[0]
-		fanPartial, err := checks.CheckFans(fan.Description, fan.Speed, flags.FanWarn, flags.FanCrit)
+		fanPartial, err := checks.CheckFans(flags.NoPerfdata, fan.Description, fan.Speed, flags.FanWarn, flags.FanCrit)
 		if err != nil {
 			errRes := result.NewPartialResult()
 			errRes.Output = fmt.Sprintf("Fans check error: %v", err)
@@ -202,7 +204,7 @@ func ModePorts(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) 
 	inRows := portsIn.PortStatistics.Rows
 	outRows := portsOut.PortStatistics.Rows
 
-	portsPartial, err := checks.CheckPorts(inRows, outRows, flags.PortsToCheck, flags.PortWarn, flags.PortCrit)
+	portsPartial, err := checks.CheckPorts(inRows, outRows, flags.PortsToCheck, flags.NoPerfdata, flags.PortWarn, flags.PortCrit)
 	if err != nil {
 		errRes := result.NewPartialResult()
 		errRes.Output = fmt.Sprintf("Ports check error: %v", err)
@@ -235,7 +237,7 @@ func ModePoE(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) (*
 		return &o, nil
 	}
 
-	poePartial, err := checks.CheckPoe(poeStatus.PoePortConfig)
+	poePartial, err := checks.CheckPoe(poeStatus.PoePortConfig, flags.NoPerfdata)
 	if err != nil {
 		errRes := result.NewPartialResult()
 		errRes.Output = fmt.Sprintf("PoE check error: %v", err)
@@ -255,6 +257,8 @@ func ModePoE(netgearSession *netgear.Netgear, worstStatus *int, flags *Flags) (*
 
 func main() {
 	flags := Flags{}
+
+	flag.BoolVar(&flags.NoPerfdata, "noperfdata", false, "Do not output performance data")
 
 	flag.BoolVar(&flags.HideCpu, "nocpu", false, "Hide the CPU info")
 	flag.BoolVar(&flags.HideMem, "nomem", false, "Hide the RAM info")
