@@ -18,6 +18,11 @@ It provides output using go-check, allowing easy integration into Icinga 2 check
 - Icinga-compatible check results with perfdata  
 - Configurable output via command-line flags  
 
+## Known Bugs
+
+- Only the first 25 ports are supported for port statistic monitoring
+(This is because of a limitation in the AVLine API)
+
 ## Documentation
 
 ### Installation
