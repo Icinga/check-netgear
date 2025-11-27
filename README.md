@@ -35,18 +35,19 @@ go install github.com/icinga/check-netgear@latest
 
 ## Arguments
 
-| Argument           | Description                                                          |
-|--------------------|----------------------------------------------------------------------|
-| `-u`, `--username` | **Required**. Username for API login                                 |
-| `-p`, `--password` | **Required**. Password for API login                                 |
-| `-H`, `--hostname` | **Optional**. Device hostname or IP (default: http://192.168.112.19) |
-| `--mode`           | **Optional**. Modes to display: basic, ports, poe (default: basic)   |
-| `--port`           | **Optional**. List of port numbers to check (default: 1–8)           |
-| `--nocpu`          | **Optional**. Hide CPU info                                          |
-| `--noram`          | **Optional**. Hide RAM info                                          |
-| `--notemp`         | **Optional**. Hide temperature info                                  |
-| `--nofans`         | **Optional**. Hide fans info                                         |
-| `-h`, `--help`     | **Optional**. Show help message                                      |
+| Argument       | Description                                                             |
+|----------------|-------------------------------------------------------------------------|
+| `--username`   | **Required**. Username for API login                                    |
+| `--password`   | **Required**. Password for API login                                    |
+| `--hostname`   | **Optional**. Device hostname or IP (default: http://192.168.0.239)     |
+| `--noperfdata` | **Optional**. Do not output any performance data                        |
+| `--mode`       | **Optional**. Modes to display: basic, ports, poe, all (default: basic) |
+| `--port`       | **Optional**. List of port numbers to check (default: 1–8)              |
+| `--nocpu`      | **Optional**. Hide CPU info                                             |
+| `--noram`      | **Optional**. Hide RAM info                                             |
+| `--notemp`     | **Optional**. Hide temperature info                                     |
+| `--nofans`     | **Optional**. Hide fans info                                            |
+| `-h`, `--help` | **Optional**. Show help message                                         |
 
 
 ## Example

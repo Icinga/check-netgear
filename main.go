@@ -284,7 +284,7 @@ func main() {
 	flag.Var(&flags.PortsToCheck, "port", "Ports to check (repeatable)")
 
 	help := flag.Bool("help", false, "Show this help")
-	flag.BoolVar(help, "h", false, "Show this help (shorthand)")
+	flag.BoolVar(help, "h", false, "Show this help")
 
 	flag.Parse()
 
