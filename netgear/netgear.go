@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/NETWAYS/go-check"
+	"github.com/NETWAYS/go-check/result"
 	"io"
 	"net/http"
 	"net/url"
@@ -21,6 +23,8 @@ type Netgear struct {
 	baseUrl  *url.URL
 	username string
 	password string
+
+	requestHandler func(string, *url.URL) (io.Reader, error)
 }
 
 func NewNetgear(baseUrl, username, password string) (*Netgear, error) {
@@ -31,12 +35,15 @@ func NewNetgear(baseUrl, username, password string) (*Netgear, error) {
 	// be sure that the base path is /api/v1 using JoinPath
 	u = u.JoinPath("api", "v1")
 
-	return &Netgear{
+	n := &Netgear{
 		client:   &http.Client{Timeout: timeout},
 		baseUrl:  u,
 		username: username,
 		password: password,
-	}, nil
+	}
+	n.requestHandler = n.makeRequest
+
+	return n, nil
 }
 
 func (n *Netgear) Login() error {
@@ -144,6 +151,113 @@ func (n *Netgear) PoeStatus() (*PoeStatus, error) {
 	return poeStatus, nil
 }
 
+// ModeBasic contains all the basic hardware information of the switch, including CPU and RAM usage, temperature and fan
+// speed
+func (n *Netgear) ModeBasic(flags *Flags) (*result.PartialResult, error) {
+	deviceInfo, err := n.DeviceInfo()
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving device info: %w", err)
+	}
+
+	if len(deviceInfo.DeviceInfo.Details) == 0 {
+		return nil, fmt.Errorf("error retrieving device info")
+	}
+	upTime := deviceInfo.DeviceInfo.Details[0].Uptime
+
+	o := result.PartialResult{
+		Output: fmt.Sprintf("Device Info: Uptime - %v", upTime),
+	}
+
+	if !flags.HideCpu {
+		if len(deviceInfo.DeviceInfo.Cpu) == 0 {
+			return nil, fmt.Errorf("no CPU info for this device")
+		}
+		cpuUsage, err := StringPercentToFloat(deviceInfo.DeviceInfo.Cpu[0].Usage)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing CPU usage: %w", err)
+		}
+
+		cpuPartial, err := CheckCPU(cpuUsage, flags.NoPerfdata, flags.CpuWarn, flags.CpuCrit)
+		if err != nil {
+			errRes := result.NewPartialResult()
+			errRes.Output = fmt.Sprintf("CPU check error: %v", err)
+			err := errRes.SetState(check.Unknown)
+			if err != nil {
+				return nil, err
+			}
+			o.AddSubcheck(errRes)
+		} else {
+			o.AddSubcheck(*cpuPartial)
+		}
+	}
+
+	if !flags.HideMem {
+		if len(deviceInfo.DeviceInfo.Memory) == 0 {
+			return nil, fmt.Errorf("no Memory info for this device")
+		}
+		memUsage, err := StringPercentToFloat(deviceInfo.DeviceInfo.Memory[0].Usage)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing Memory usage: %w", err)
+		}
+
+		memPartial, err := CheckMemory(memUsage, flags.NoPerfdata, flags.MemWarn, flags.MemCrit)
+		if err != nil {
+			errRes := result.NewPartialResult()
+			errRes.Output = fmt.Sprintf("Memory check error: %v", err)
+			err := errRes.SetState(check.Unknown)
+			if err != nil {
+				return nil, err
+			}
+			o.AddSubcheck(errRes)
+		} else {
+			o.AddSubcheck(*memPartial)
+		}
+	}
+
+	if !flags.HideTemp {
+		if len(deviceInfo.DeviceInfo.Sensor) == 0 {
+			return nil, fmt.Errorf("no Temperature info for this device")
+		}
+		sensorDetails := deviceInfo.DeviceInfo.Sensor[0].Details
+		tempPartial, err := CheckTemperature(sensorDetails, flags.NoPerfdata, flags.TempWarn, flags.TempCrit)
+		if err != nil {
+			errRes := result.NewPartialResult()
+			errRes.Output = fmt.Sprintf("Temperature check error: %v", err)
+			err := errRes.SetState(check.Unknown)
+			if err != nil {
+				return nil, err
+			}
+			o.AddSubcheck(errRes)
+		} else {
+			o.AddSubcheck(*tempPartial)
+		}
+	}
+
+	if !flags.HideFans {
+		if len(deviceInfo.DeviceInfo.Fan) == 0 {
+			return nil, fmt.Errorf("no Fan info for this device")
+		}
+		if len(deviceInfo.DeviceInfo.Fan[0].Details) == 0 {
+			return nil, fmt.Errorf("no Fan details for this device")
+		}
+		fan := deviceInfo.DeviceInfo.Fan[0].Details[0]
+		fanPartial, err := CheckFans(flags.NoPerfdata, fan.Description, fan.Speed, flags.FanWarn, flags.FanCrit)
+		if err != nil {
+			errRes := result.NewPartialResult()
+			errRes.Output = fmt.Sprintf("Fans check error: %v", err)
+			err := errRes.SetState(check.Unknown)
+			if err != nil {
+				return nil, err
+			}
+			o.AddSubcheck(errRes)
+		} else {
+			o.AddSubcheck(*fanPartial)
+		}
+	}
+
+	return &o, nil
+}
+
 // doRequestURL Performs an HTTP-Request to a given path on the previously defined host and stores the resulting json
 // response in the object provided by the result parameter.
 //
@@ -159,31 +273,42 @@ func (n *Netgear) doRequest(method, path string, result any) error {
 // Note: setting the result parameter to nil causes the parsing of the response to be skipped, the request is still
 // performed.
 func (n *Netgear) doRequestURL(method string, u *url.URL, result any) error {
-	req, err := http.NewRequest(method, u.String(), nil)
+	if result == nil {
+		return nil
+	}
+
+	body, err := n.requestHandler(method, u)
 	if err != nil {
 		return err
+	}
+	defer func() {
+		_, _ = io.Copy(io.Discard, body)
+		if closer, ok := body.(io.Closer); ok {
+			_ = closer.Close()
+		}
+	}()
+
+	if err := json.NewDecoder(body).Decode(result); err != nil {
+		return fmt.Errorf("failed to parse response JSON: %w", err)
+	}
+
+	return nil
+}
+
+func (n *Netgear) makeRequest(method string, u *url.URL) (io.Reader, error) {
+	req, err := http.NewRequest(method, u.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	req.Header.Set("session", n.sessionToken)
 
 	resp, err := n.client.Do(req)
 	if err != nil {
-		return err
-	}
-	defer func() {
-		_, _ = io.Copy(io.Discard, resp.Body)
-		_ = resp.Body.Close()
-	}()
-
-	if result == nil {
-		return nil
+		return nil, err
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
-		return fmt.Errorf("failed to parse response JSON: %w", err)
-	}
-
-	return nil
+	return resp.Body, nil
 }
 
 func StringPercentToFloat(percents string) (float64, error) {

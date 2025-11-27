@@ -1,4 +1,4 @@
-package checks
+package netgear
 
 import (
 	"fmt"
@@ -8,7 +8,6 @@ import (
 	"github.com/NETWAYS/go-check/perfdata"
 	"github.com/NETWAYS/go-check/result"
 	"github.com/icinga/check-netgear/internal/utils"
-	"github.com/icinga/check-netgear/netgear"
 )
 
 // CheckCPU creates a partialResult with the CPU information
@@ -42,7 +41,7 @@ func CheckMemory(memUsage float64, noPerfdata bool, warn float64, crit float64) 
 }
 
 // CheckTemperature creates a partialResult with the temperature information
-func CheckTemperature(sensors []netgear.SensorDetail, noPerfdata bool, warn float64, crit float64) (*result.PartialResult, error) {
+func CheckTemperature(sensors []SensorDetail, noPerfdata bool, warn float64, crit float64) (*result.PartialResult, error) {
 	partial := result.PartialResult{Output: "Temperature"}
 	worst := check.OK
 
@@ -93,7 +92,7 @@ func CheckFans(noPerfdata bool, fanName string, fanSpeed float64, warn float64, 
 }
 
 // CheckPorts creates a partialResult with the port information
-func CheckPorts(inRows, outRows []netgear.PortStatisticRow, portsToCheck []int, noPerfdata bool, warn float64, crit float64) (*result.PartialResult, error) {
+func CheckPorts(inRows, outRows []PortStatisticRow, portsToCheck []int, noPerfdata bool, warn float64, crit float64) (*result.PartialResult, error) {
 	overall := result.PartialResult{Output: "Ports Statistics"}
 	worst := check.OK
 
@@ -153,7 +152,7 @@ func CheckPorts(inRows, outRows []netgear.PortStatisticRow, portsToCheck []int, 
 }
 
 // CheckPoe creates a partialResult with information about every port's POE status
-func CheckPoe(ports []netgear.PoePort, noPerfdata bool) (*result.PartialResult, error) {
+func CheckPoe(ports []PoePort, noPerfdata bool) (*result.PartialResult, error) {
 	partial := result.PartialResult{Output: "Power over Ethernet Statistics"}
 	worst := check.OK
 

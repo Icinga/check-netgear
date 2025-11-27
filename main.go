@@ -5,175 +5,15 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"strconv"
-	"strings"
 
-	"github.com/icinga/check-netgear/internal/checks"
 	"github.com/icinga/check-netgear/netgear"
 
 	"github.com/NETWAYS/go-check"
 	"github.com/NETWAYS/go-check/result"
 )
 
-// So that flag supports slices
-type stringSliceFlag []string
-
-func (s *stringSliceFlag) String() string { return strings.Join(*s, ",") }
-func (s *stringSliceFlag) Set(v string) error {
-	*s = append(*s, v)
-	return nil
-}
-
-type intSliceFlag []int
-
-func (i *intSliceFlag) String() string {
-	parts := make([]string, 0, len(*i))
-	for _, v := range *i {
-		parts = append(parts, strconv.Itoa(v))
-	}
-	return strings.Join(parts, ",")
-}
-func (i *intSliceFlag) Set(v string) error {
-	n, err := strconv.Atoi(v)
-	if err != nil {
-		return err
-	}
-	*i = append(*i, n)
-	return nil
-}
-
-// Flags contains all command line flags that are relevant to check modes
-type Flags struct {
-	NoPerfdata bool
-
-	HideCpu  bool
-	HideMem  bool
-	HideTemp bool
-	HideFans bool
-
-	CpuWarn  float64
-	CpuCrit  float64
-	MemWarn  float64
-	MemCrit  float64
-	TempWarn float64
-	TempCrit float64
-	FanWarn  float64
-	FanCrit  float64
-	PortWarn float64
-	PortCrit float64
-
-	PortsToCheck intSliceFlag
-}
-
-// ModeBasic contains all the basic hardware information of the switch, including CPU and RAM usage, temperature and fan
-// speed
-func ModeBasic(netgearSession *netgear.Netgear, flags *Flags) (*result.PartialResult, error) {
-	deviceInfo, err := netgearSession.DeviceInfo()
-	if err != nil {
-		return nil, fmt.Errorf("error retrieving device info: %w", err)
-	}
-
-	if len(deviceInfo.DeviceInfo.Details) == 0 {
-		return nil, fmt.Errorf("error retrieving device info")
-	}
-	upTime := deviceInfo.DeviceInfo.Details[0].Uptime
-
-	o := result.PartialResult{
-		Output: fmt.Sprintf("Device Info: Uptime - %v", upTime),
-	}
-
-	if !flags.HideCpu {
-		if len(deviceInfo.DeviceInfo.Cpu) == 0 {
-			return nil, fmt.Errorf("no CPU info for this device")
-		}
-		cpuUsage, err := netgear.StringPercentToFloat(deviceInfo.DeviceInfo.Cpu[0].Usage)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing CPU usage: %w", err)
-		}
-
-		cpuPartial, err := checks.CheckCPU(cpuUsage, flags.NoPerfdata, flags.CpuWarn, flags.CpuCrit)
-		if err != nil {
-			errRes := result.NewPartialResult()
-			errRes.Output = fmt.Sprintf("CPU check error: %v", err)
-			err := errRes.SetState(check.Unknown)
-			if err != nil {
-				return nil, err
-			}
-			o.AddSubcheck(errRes)
-		} else {
-			o.AddSubcheck(*cpuPartial)
-		}
-	}
-
-	if !flags.HideMem {
-		if len(deviceInfo.DeviceInfo.Memory) == 0 {
-			return nil, fmt.Errorf("no Memory info for this device")
-		}
-		memUsage, err := netgear.StringPercentToFloat(deviceInfo.DeviceInfo.Memory[0].Usage)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing Memory usage: %w", err)
-		}
-
-		memPartial, err := checks.CheckMemory(memUsage, flags.NoPerfdata, flags.MemWarn, flags.MemCrit)
-		if err != nil {
-			errRes := result.NewPartialResult()
-			errRes.Output = fmt.Sprintf("Memory check error: %v", err)
-			err := errRes.SetState(check.Unknown)
-			if err != nil {
-				return nil, err
-			}
-			o.AddSubcheck(errRes)
-		} else {
-			o.AddSubcheck(*memPartial)
-		}
-	}
-
-	if !flags.HideTemp {
-		if len(deviceInfo.DeviceInfo.Sensor) == 0 {
-			return nil, fmt.Errorf("no Temperature info for this device")
-		}
-		sensorDetails := deviceInfo.DeviceInfo.Sensor[0].Details
-		tempPartial, err := checks.CheckTemperature(sensorDetails, flags.NoPerfdata, flags.TempWarn, flags.TempCrit)
-		if err != nil {
-			errRes := result.NewPartialResult()
-			errRes.Output = fmt.Sprintf("Temperature check error: %v", err)
-			err := errRes.SetState(check.Unknown)
-			if err != nil {
-				return nil, err
-			}
-			o.AddSubcheck(errRes)
-		} else {
-			o.AddSubcheck(*tempPartial)
-		}
-	}
-
-	if !flags.HideFans {
-		if len(deviceInfo.DeviceInfo.Fan) == 0 {
-			return nil, fmt.Errorf("no Fan info for this device")
-		}
-		if len(deviceInfo.DeviceInfo.Fan[0].Details) == 0 {
-			return nil, fmt.Errorf("no Fan details for this device")
-		}
-		fan := deviceInfo.DeviceInfo.Fan[0].Details[0]
-		fanPartial, err := checks.CheckFans(flags.NoPerfdata, fan.Description, fan.Speed, flags.FanWarn, flags.FanCrit)
-		if err != nil {
-			errRes := result.NewPartialResult()
-			errRes.Output = fmt.Sprintf("Fans check error: %v", err)
-			err := errRes.SetState(check.Unknown)
-			if err != nil {
-				return nil, err
-			}
-			o.AddSubcheck(errRes)
-		} else {
-			o.AddSubcheck(*fanPartial)
-		}
-	}
-
-	return &o, nil
-}
-
 // ModePorts monitors the network traffic on the ports and reports back the percentage of dropped packets
-func ModePorts(netgearSession *netgear.Netgear, flags *Flags) (*result.PartialResult, error) {
+func ModePorts(netgearSession *netgear.Netgear, flags *netgear.Flags) (*result.PartialResult, error) {
 	o := result.PartialResult{}
 	portsIn, err := netgearSession.PortStatistics("inbound")
 	if err != nil {
@@ -201,7 +41,7 @@ func ModePorts(netgearSession *netgear.Netgear, flags *Flags) (*result.PartialRe
 	inRows := portsIn.PortStatistics.Rows
 	outRows := portsOut.PortStatistics.Rows
 
-	portsPartial, err := checks.CheckPorts(inRows, outRows, flags.PortsToCheck, flags.NoPerfdata, flags.PortWarn, flags.PortCrit)
+	portsPartial, err := netgear.CheckPorts(inRows, outRows, flags.PortsToCheck, flags.NoPerfdata, flags.PortWarn, flags.PortCrit)
 	if err != nil {
 		errRes := result.NewPartialResult()
 		errRes.Output = fmt.Sprintf("Ports check error: %v", err)
@@ -219,7 +59,7 @@ func ModePorts(netgearSession *netgear.Netgear, flags *Flags) (*result.PartialRe
 }
 
 // ModePoE checks the ports PoE state
-func ModePoE(netgearSession *netgear.Netgear, flags *Flags) (*result.PartialResult, error) {
+func ModePoE(netgearSession *netgear.Netgear, flags *netgear.Flags) (*result.PartialResult, error) {
 	o := result.PartialResult{}
 	poeStatus, err := netgearSession.PoeStatus()
 	if err != nil {
@@ -233,7 +73,7 @@ func ModePoE(netgearSession *netgear.Netgear, flags *Flags) (*result.PartialResu
 		return &o, nil
 	}
 
-	poePartial, err := checks.CheckPoe(poeStatus.PoePortConfig, flags.NoPerfdata)
+	poePartial, err := netgear.CheckPoe(poeStatus.PoePortConfig, flags.NoPerfdata)
 	if err != nil {
 		errRes := result.NewPartialResult()
 		errRes.Output = fmt.Sprintf("PoE check error: %v", err)
@@ -251,7 +91,7 @@ func ModePoE(netgearSession *netgear.Netgear, flags *Flags) (*result.PartialResu
 }
 
 func main() {
-	flags := Flags{}
+	flags := netgear.Flags{}
 
 	flag.BoolVar(&flags.NoPerfdata, "noperfdata", false, "Do not output performance data")
 
@@ -260,7 +100,7 @@ func main() {
 	flag.BoolVar(&flags.HideTemp, "notemp", false, "Hide the Temperature info")
 	flag.BoolVar(&flags.HideFans, "nofans", false, "Hide the Fans info")
 
-	mode := stringSliceFlag{}
+	mode := netgear.StringSliceFlag{}
 	flag.Var(&mode, "mode", "Output modes to enable {basic|ports|poe|all} (repeatable) (default: basic)")
 
 	baseURL := flag.String("base-url", "http://192.168.0.239", "Base URL to use")
@@ -280,7 +120,7 @@ func main() {
 	flag.Float64Var(&flags.PortWarn, "stats-warning", 5, "Port stats warning threshold")
 	flag.Float64Var(&flags.PortCrit, "stats-critical", 20, "Port stats critical threshold")
 
-	flags.PortsToCheck = intSliceFlag{1, 2, 3, 4, 5, 6, 7, 8}
+	flags.PortsToCheck = netgear.IntSliceFlag{1, 2, 3, 4, 5, 6, 7, 8}
 	flag.Var(&flags.PortsToCheck, "port", "Ports to check (repeatable)")
 
 	help := flag.Bool("help", false, "Show this help")
@@ -320,7 +160,7 @@ func main() {
 
 	// Basic check
 	if slices.Contains(mode, "basic") {
-		subcheck, err := ModeBasic(netgearSession, &flags)
+		subcheck, err := netgearSession.ModeBasic(&flags)
 		if err != nil {
 			fmt.Print(err)
 			os.Exit(check.Unknown)
