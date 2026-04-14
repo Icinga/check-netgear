@@ -266,7 +266,8 @@ func main() {
 	baseURL := flag.String("base-url", "http://192.168.0.239", "Base URL to use")
 
 	username := flag.String("username", "", "Username for authentication")
-	password := flag.String("password", "", "Password for authentication")
+	passwordFlag := flag.String("password", "", "Password for authentication")
+	passFile := flag.String("password-file", "", "Path to the file containing the password")
 
 	// Thresholds
 	flag.Float64Var(&flags.CpuWarn, "cpu-warning", 50, "CPU usage warning threshold")
@@ -293,12 +294,24 @@ func main() {
 		return
 	}
 
-	if *username == "" || *password == "" {
-		fmt.Println("Both username and password are required")
+	var password string
+	if *passFile != "" {
+		content, err := os.ReadFile(*passFile)
+		if err != nil {
+			fmt.Printf("Error reading password file: %v\n", err)
+			os.Exit(check.Unknown)
+		}
+		password = strings.TrimSpace(string(content))
+	} else {
+		password = *passwordFlag
+	}
+
+	if *username == "" || password == "" {
+		fmt.Println("Username and a password (via -password or -password-file) are required")
 		os.Exit(check.Unknown)
 	}
 
-	netgearSession, err := netgear.NewNetgear(*baseURL, *username, *password)
+	netgearSession, err := netgear.NewNetgear(*baseURL, *username, password)
 	if err != nil {
 		fmt.Printf("URL error: %v", err)
 		os.Exit(check.Unknown)
