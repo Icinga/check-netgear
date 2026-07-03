@@ -302,12 +302,14 @@ func main() {
 			os.Exit(check.Unknown)
 		}
 		password = strings.TrimSpace(string(content))
-	} else {
+	} else if *passwordFlag != "" {
 		password = *passwordFlag
+	} else {
+		password = os.Getenv("NETGEAR_PASSWORD")
 	}
 
 	if *username == "" || password == "" {
-		fmt.Println("Username and a password (via -password or -password-file) are required")
+		fmt.Println("Username and a password (via -password, -password-file or NETGEAR_PASSWORD) are required")
 		os.Exit(check.Unknown)
 	}
 
